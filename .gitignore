@@ -1,0 +1,118 @@
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+.idea/
+.vscode/
+*.iml
+
+# Dependencies
+vendor/
+node_modules/
+
+# CodeIgniter writable runtime files
+writable/cache/*
+!writable/cache/index.html
+writable/debugbar/*
+!writable/debugbar/index.html
+writable/logs/*
+!writable/logs/index.html
+writable/session/*
+!writable/session/index.html
+writable/uploads/*
+!writable/uploads/index.html
+
+# Test/build outputs
+tests/coverage*
+phpunit
+phpunit*.xml
+results/
+build/
+builds/
+/builds
+dist/
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated documents, diagrams, archives, and reports
+*.doc
+*.docx
+*.pdf
+*.xls
+*.xlsx
+*.csv
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.drawio
+*.drawio.xml
+*.graphml
+*.xml
+*.json
+*.html
+*.md
+*.md.bak
+
+# Large model/audio/AI artifacts
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.bin
+*.h5
+*.keras
+*.pkl
+*.joblib
+weight/
+.venv*/
+
+# Local scripts/artifacts outside the core app
+agent/
+data/
+docs/
+implementasi/
+program_inti_pkg/
+rancangan/
+remotion/
+revisi/
+tools/
+
+# Local temporary PHP/SQL helper files in project root
+/*.php
+/*.sql
+/*.py
+/*.txt
+/public/check.php
+/public/setup_dummy.php
+tests/
+
+# Keep core CodeIgniter entry files and config/docs
+!spark
+!preload.php
+!composer.json
+!composer.lock
+!README.md
+!LICENSE
+!.env
+!env
+!.gitignore
+!phpunit.xml.dist
+
+# Keep core application source, public assets, tests, and database seeders/migrations
+!app/
+!app/**
+!public/
+!public/**
+!writable/
+!writable/**/index.html
+
+# Exclude local public helper scripts after public assets are re-included
+/public/check.php
+/public/setup_dummy.php
