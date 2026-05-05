@@ -66,6 +66,7 @@ $routes->group('admin', ['filter' => ['auth', 'role:admin']], static function ($
     $routes->get('rapor/detail/(:num)/(:num)', 'Admin\Rapor::detail/$1/$2');
     $routes->post('rapor/store', 'Admin\Rapor::store');
     $routes->post('rapor/update/(:num)', 'Admin\Rapor::update/$1');
+    $routes->post('rapor/unfinalize/(:num)', 'Admin\Rapor::unfinalize/$1');
     $routes->post('rapor/import-attendance', 'Admin\Rapor::importAttendance');
     $routes->post('rapor/finalize-class/(:num)/(:num)', 'Admin\Rapor::finalizeClass/$1/$2');
     $routes->post('rapor/finalize/(:num)/(:num)', 'Admin\Rapor::finalize/$1/$2');

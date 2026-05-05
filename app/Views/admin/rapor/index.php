@@ -220,6 +220,7 @@
                                      data-id_tahun_ajaran="<?= esc($filter_ta ?? '') ?>"
                                      data-nama="<?= esc($r['nama_siswa']) ?>"
                                      data-id_rapor="<?= $r['id_rapor'] ?? '' ?>"
+                                     data-is_finalized="<?= !empty($r['is_finalized']) ? '1' : '0' ?>"
                                      data-sakit="<?= $r['sakit'] ?? 0 ?>"
                                     data-izin="<?= $r['izin'] ?? 0 ?>"
                                     data-alpa="<?= $r['alpa'] ?? 0 ?>"
@@ -227,12 +228,23 @@
                                      data-status="<?= $r['status_kenaikan'] ?? '' ?>">
                                     <i class="bi bi-file-earmark-text me-1"></i>Detail/Edit
                                  </button>
-                                <form action="<?= base_url('admin/rapor/finalize/' . $r['id_siswa'] . '/' . ($filter_ta ?? '')) ?>" method="post" class="d-inline">
-                                    <?= csrf_field() ?>
-                                    <button type="submit" class="btn btn-sm btn-success" <?= (isset($selected_tahun_ajaran) && $selected_tahun_ajaran['status_pengisian'] === 'Kunci' && !empty($r['is_complete']) && empty($r['is_finalized'])) ? '' : 'disabled' ?> onclick="return confirm('Finalisasi rapor siswa ini?')">
-                                        <i class="bi bi-shield-check"></i>
-                                    </button>
-                                </form>
+                                <?php if (!empty($r['is_finalized']) && !empty($r['id_rapor'])): ?>
+                                    <form action="<?= base_url('admin/rapor/unfinalize/' . $r['id_rapor']) ?>" method="post" class="d-inline">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Batalkan finalisasi rapor ini? Orang tua tidak dapat melihat rapor final sampai difinalisasi ulang.')">
+                                            <i class="bi bi-unlock me-1"></i>Batalkan Final
+                                        </button>
+                                    </form>
+                                <?php elseif (!empty($r['is_complete'])): ?>
+                                    <form action="<?= base_url('admin/rapor/finalize/' . $r['id_siswa'] . '/' . ($filter_ta ?? '')) ?>" method="post" class="d-inline">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm btn-success" <?= (isset($selected_tahun_ajaran) && $selected_tahun_ajaran['status_pengisian'] === 'Kunci') ? '' : 'disabled' ?> onclick="return confirm('Finalisasi rapor siswa ini?')">
+                                            <i class="bi bi-shield-check me-1"></i>Finalisasi
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle align-self-center">Belum lengkap</span>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
@@ -265,9 +277,16 @@
                         <input type="file" name="attendance_file" class="form-control" accept=".xls,.xlsx" required>
                         <div class="form-text">Gunakan workbook absensi resmi sekolah. Sistem membaca sheet kelas dan menghitung kode <strong>S</strong>, <strong>I</strong>, dan <strong>A</strong> per siswa. Sel kosong dianggap hadir / belum diisi.</div>
                     </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="overwrite_finalized" value="1" id="overwriteFinalizedImport">
+                        <label class="form-check-label" for="overwriteFinalizedImport">
+                            Izinkan import menimpa rapor final dan batalkan finalisasi otomatis
+                        </label>
+                        <div class="form-text">Jika dicentang, absensi rapor final akan diperbarui dan statusnya berubah menjadi Draft.</div>
+                    </div>
                     <ul class="small text-muted mb-0 ps-3">
                         <li>Import ini hanya mengisi rekap kehadiran pada rapor.</li>
-                        <li>Rapor yang sudah final tidak akan diubah melalui import absensi.</li>
+                        <li>Tanpa opsi overwrite, rapor yang sudah final tidak akan diubah melalui import absensi.</li>
                     </ul>
                 </div>
                 <div class="modal-footer">
@@ -297,6 +316,10 @@
                         <i class="bi bi-arrow-repeat me-2"></i>Memuat detail isi rapor siswa...
                     </div>
                     <div id="rapor-detail-error" class="alert alert-danger border-0 shadow-sm mb-3 d-none"></div>
+                    <div id="rapor-final-warning" class="alert alert-warning border-0 shadow-sm mb-3 d-none">
+                        <div class="fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>Rapor ini sudah final.</div>
+                        <div class="small mb-0">Jika disimpan, status finalisasi akan otomatis dibatalkan dan orang tua tidak dapat melihat rapor final sampai difinalisasi ulang.</div>
+                    </div>
                     <div id="rapor-detail-content" class="d-none">
                         <div class="alert alert-primary border-0 shadow-sm mb-3">
                             <div class="fw-bold"><i class="bi bi-eye me-2"></i>Preview Isi Lembar Rapor</div>
@@ -499,6 +522,12 @@ const renderDetailRapor = (payload) => {
     setAlert('detail-rapor-message', data.messages?.rapor || '');
     setAlert('detail-nilai-message', data.messages?.nilai || '');
 
+    document.getElementById('modal-sakit').value = rapor.sakit ?? 0;
+    document.getElementById('modal-izin').value = rapor.izin ?? 0;
+    document.getElementById('modal-alpa').value = rapor.alpa ?? 0;
+    document.getElementById('modal-catatan').value = rapor.catatan_wali_kelas || '';
+    document.getElementById('modal-status').value = rapor.status_kenaikan || '';
+
     const nilaiBody = document.getElementById('detail-nilai-body');
     if (nilai.length === 0) {
         nilaiBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Nilai belum tersedia</td></tr>';
@@ -534,6 +563,7 @@ document.getElementById('editRaporModal').addEventListener('show.bs.modal', func
     document.getElementById('modal-status').value = btn.dataset.status;
 
     const idRapor = btn.dataset.id_rapor;
+    const isFinalized = btn.dataset.is_finalized === '1';
     const form = document.getElementById('raporForm');
     if (idRapor) {
         form.action = '<?= base_url('admin/rapor/update/') ?>' + idRapor;
@@ -543,6 +573,7 @@ document.getElementById('editRaporModal').addEventListener('show.bs.modal', func
 
     document.getElementById('rapor-detail-loading').classList.remove('d-none');
     document.getElementById('rapor-detail-content').classList.add('d-none');
+    document.getElementById('rapor-final-warning').classList.toggle('d-none', !isFinalized);
     setAlert('rapor-detail-error', '');
 
     const idSiswa = btn.dataset.id;

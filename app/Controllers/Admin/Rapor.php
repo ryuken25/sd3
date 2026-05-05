@@ -128,7 +128,7 @@ class Rapor extends BaseController
         if ($existing) {
             $raporModel->update($existing['id_rapor'], $raporData);
             $msg = !empty($existing['is_finalized'])
-                ? 'Rapor berhasil diperbarui dan status finalisasi direset.'
+                ? 'Rapor berhasil diperbarui dan finalisasi dibatalkan. Silakan finalisasi ulang setelah data benar.'
                 : 'Rapor berhasil diperbarui.';
         } else {
             $raporModel->insert($raporData);
@@ -170,10 +170,37 @@ class Rapor extends BaseController
         $raporModel->update($id, $raporData);
 
         $message = !empty($rapor['is_finalized'])
-            ? 'Rapor berhasil diperbarui dan status finalisasi direset.'
+            ? 'Rapor berhasil diperbarui dan finalisasi dibatalkan. Silakan finalisasi ulang setelah data benar.'
             : 'Rapor berhasil diperbarui.';
 
         return redirect()->back()->with('success', $message);
+    }
+
+    public function unfinalize($id_rapor)
+    {
+        $idRapor = (int) $id_rapor;
+        if ($idRapor <= 0) {
+            return redirect()->back()->with('error', 'ID rapor tidak valid.');
+        }
+
+        $raporModel = new RaporModel();
+        $rapor = $raporModel->find($idRapor);
+
+        if (!$rapor) {
+            return redirect()->back()->with('error', 'Data rapor tidak ditemukan.');
+        }
+
+        if (empty($rapor['is_finalized'])) {
+            return redirect()->back()->with('success', 'Rapor sudah berstatus Draft dan dapat diedit.');
+        }
+
+        $raporModel->update($idRapor, [
+            'is_finalized' => 0,
+            'finalized_at' => null,
+            'finalized_by' => null,
+        ]);
+
+        return redirect()->back()->with('success', 'Finalisasi rapor berhasil dibatalkan. Rapor dapat diedit kembali.');
     }
 
     public function detail($id_siswa, $id_tahun_ajaran)
@@ -322,6 +349,7 @@ class Rapor extends BaseController
 
         $idKelas = (int) $this->request->getPost('id_kelas');
         $idTahunAjaran = (int) $this->request->getPost('id_tahun_ajaran');
+        $overwriteFinalized = (bool) $this->request->getPost('overwrite_finalized');
         $kelas = $kelasModel->find($idKelas);
         $tahunAjaran = $tahunAjaranModel->find($idTahunAjaran);
 
@@ -359,6 +387,7 @@ class Rapor extends BaseController
         $created = 0;
         $unmatched = [];
         $locked = [];
+        $overwrittenFinalized = [];
 
         try {
             foreach ($sheet['students'] as $studentRow) {
@@ -386,9 +415,13 @@ class Rapor extends BaseController
                 ];
 
                 if ($rapor) {
-                    if (!empty($rapor['is_finalized'])) {
+                    if (!empty($rapor['is_finalized']) && !$overwriteFinalized) {
                         $locked[] = $siswa['nama_siswa'];
                         continue;
+                    }
+
+                    if (!empty($rapor['is_finalized']) && $overwriteFinalized) {
+                        $overwrittenFinalized[] = $siswa['nama_siswa'];
                     }
 
                     $raporModel->update((int) $rapor['id_rapor'], [
@@ -413,6 +446,14 @@ class Rapor extends BaseController
             }
 
             $message = "Import absensi selesai. Draft baru: {$created}, draft diperbarui: {$updated}.";
+            if (!empty($overwrittenFinalized)) {
+                $message .= ' Rapor final yang ditimpa dan dibatalkan finalisasinya: ' . implode(', ', array_slice($overwrittenFinalized, 0, 5));
+                if (count($overwrittenFinalized) > 5) {
+                    $message .= ' dan ' . (count($overwrittenFinalized) - 5) . ' lainnya';
+                }
+                $message .= '. Silakan finalisasi ulang setelah data benar.';
+            }
+
             if (!empty($unmatched)) {
                 $message .= ' Siswa tidak cocok: ' . implode(', ', array_slice($unmatched, 0, 5));
                 if (count($unmatched) > 5) {
@@ -422,7 +463,7 @@ class Rapor extends BaseController
             }
 
             if (!empty($locked)) {
-                $message .= ' Rapor yang sudah final tidak diubah: ' . implode(', ', array_slice($locked, 0, 5));
+                $message .= ' Beberapa rapor tidak diubah karena sudah final. Batalkan finalisasi terlebih dahulu atau centang opsi overwrite saat import. Rapor final yang dilewati: ' . implode(', ', array_slice($locked, 0, 5));
                 if (count($locked) > 5) {
                     $message .= ' dan ' . (count($locked) - 5) . ' lainnya';
                 }
