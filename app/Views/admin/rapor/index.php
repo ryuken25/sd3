@@ -214,12 +214,13 @@
                         </td>
                         <td>
                             <div class="d-flex flex-wrap gap-2">
-                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
-                                    data-bs-target="#editRaporModal"
-                                    data-id="<?= $r['id_siswa'] ?>"
-                                    data-nama="<?= esc($r['nama_siswa']) ?>"
-                                    data-id_rapor="<?= $r['id_rapor'] ?? '' ?>"
-                                    data-sakit="<?= $r['sakit'] ?? 0 ?>"
+                                 <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                     data-bs-target="#editRaporModal"
+                                     data-id="<?= $r['id_siswa'] ?>"
+                                     data-id_tahun_ajaran="<?= esc($filter_ta ?? '') ?>"
+                                     data-nama="<?= esc($r['nama_siswa']) ?>"
+                                     data-id_rapor="<?= $r['id_rapor'] ?? '' ?>"
+                                     data-sakit="<?= $r['sakit'] ?? 0 ?>"
                                     data-izin="<?= $r['izin'] ?? 0 ?>"
                                     data-alpa="<?= $r['alpa'] ?? 0 ?>"
                                     data-catatan="<?= esc($r['catatan_wali_kelas'] ?? '') ?>"
@@ -281,10 +282,10 @@
 
 <!-- Edit Rapor Modal -->
 <div class="modal fade" id="editRaporModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Form Isi Rapor: <span id="modal-nama-siswa"></span></h5>
+                <h5 class="modal-title"><i class="bi bi-file-earmark-text me-2"></i>Detail Rapor Siswa: <span id="modal-nama-siswa"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="raporForm" method="post">
@@ -292,6 +293,79 @@
                 <input type="hidden" name="id_siswa" id="modal-id-siswa">
                 <input type="hidden" name="id_tahun_ajaran" value="<?= $filter_ta ?? '' ?>">
                 <div class="modal-body">
+                    <div id="rapor-detail-loading" class="alert alert-info border-0 shadow-sm mb-3">
+                        <i class="bi bi-arrow-repeat me-2"></i>Memuat detail isi rapor siswa...
+                    </div>
+                    <div id="rapor-detail-error" class="alert alert-danger border-0 shadow-sm mb-3 d-none"></div>
+                    <div id="rapor-detail-content" class="d-none">
+                        <div class="card border-0 bg-light mb-3">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3"><i class="bi bi-person-vcard me-2"></i>Identitas Siswa</h6>
+                                <div class="row g-3 small">
+                                    <div class="col-md-4">
+                                        <div class="text-muted">Nama</div>
+                                        <div class="fw-semibold" id="detail-nama">-</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-muted">NIS</div>
+                                        <div class="fw-semibold" id="detail-nis">-</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-muted">NISN</div>
+                                        <div class="fw-semibold" id="detail-nisn">-</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-muted">Kelas</div>
+                                        <div class="fw-semibold" id="detail-kelas">-</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-muted">Semester</div>
+                                        <div class="fw-semibold" id="detail-semester">-</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">Tahun Ajaran</div>
+                                        <div class="fw-semibold" id="detail-tahun-ajaran">-</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">Status Rapor</div>
+                                        <div id="detail-status-rapor">-</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">Kelengkapan</div>
+                                        <div id="detail-kelengkapan">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="detail-rapor-message" class="alert alert-warning border-0 shadow-sm d-none"></div>
+                        <div id="detail-nilai-message" class="alert alert-warning border-0 shadow-sm d-none"></div>
+
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-white fw-bold"><i class="bi bi-journal-check me-2"></i>Nilai Mata Pelajaran</div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="text-center" style="width: 56px;">No</th>
+                                            <th>Mata Pelajaran</th>
+                                            <th class="text-center" style="width: 90px;">KKM</th>
+                                            <th class="text-center" style="width: 110px;">Nilai</th>
+                                            <th class="text-center" style="width: 90px;">Huruf</th>
+                                            <th class="text-center" style="width: 150px;">Keterangan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="detail-nilai-body">
+                                        <tr><td colspan="6" class="text-center text-muted py-3">Nilai belum tersedia</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-3"><i class="bi bi-pencil-square me-2"></i>Form Edit Data Rapor</h6>
+                    <div class="small text-muted mb-2">Bagian ini tetap dapat diedit oleh admin tanpa mengubah data nilai mata pelajaran.</div>
+                    <div class="fw-semibold mb-2"><i class="bi bi-calendar-check me-2"></i>Bagian Absensi</div>
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Sakit (hari)</label>
@@ -305,6 +379,9 @@
                             <label class="form-label">Alpa (hari)</label>
                             <input type="number" name="alpa" id="modal-alpa" class="form-control" min="0" value="0">
                         </div>
+                    </div>
+                    <div class="fw-semibold mt-3 mb-2"><i class="bi bi-chat-left-text me-2"></i>Bagian Catatan dan Status</div>
+                    <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label">Catatan Wali Kelas</label>
                             <textarea name="catatan_wali_kelas" id="modal-catatan" class="form-control" rows="3"></textarea>
@@ -330,6 +407,86 @@
 </div>
 
 <script>
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const formatNumber = (value) => {
+    if (value === null || value === undefined || value === '') {
+        return '-';
+    }
+    const number = Number(value);
+    return Number.isNaN(number) ? '-' : number.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+
+const setText = (id, value) => {
+    document.getElementById(id).textContent = value || '-';
+};
+
+const setAlert = (id, message) => {
+    const element = document.getElementById(id);
+    if (message) {
+        element.textContent = message;
+        element.classList.remove('d-none');
+    } else {
+        element.textContent = '';
+        element.classList.add('d-none');
+    }
+};
+
+const renderDetailRapor = (payload) => {
+    const data = payload.data || {};
+    const siswa = data.siswa || {};
+    const tahunAjaran = data.tahun_ajaran || {};
+    const rapor = data.rapor || {};
+    const summary = data.summary || {};
+    const nilai = Array.isArray(data.nilai) ? data.nilai : [];
+
+    setText('detail-nama', siswa.nama_siswa);
+    setText('detail-nis', siswa.nis);
+    setText('detail-nisn', siswa.nisn);
+    setText('detail-kelas', siswa.nama_kelas);
+    setText('detail-semester', tahunAjaran.semester ? `Semester ${tahunAjaran.semester}` : '-');
+    setText('detail-tahun-ajaran', tahunAjaran.tahun_ajaran);
+
+    document.getElementById('detail-status-rapor').innerHTML = rapor.is_finalized
+        ? '<span class="badge bg-primary">Final</span>'
+        : '<span class="badge bg-warning text-dark">Draft</span>';
+
+    document.getElementById('detail-kelengkapan').innerHTML = summary.is_complete
+        ? '<span class="badge bg-success">Lengkap</span>'
+        : '<span class="badge bg-danger">Belum lengkap</span>';
+
+    setAlert('detail-rapor-message', data.messages?.rapor || '');
+    setAlert('detail-nilai-message', data.messages?.nilai || '');
+
+    const nilaiBody = document.getElementById('detail-nilai-body');
+    if (nilai.length === 0) {
+        nilaiBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Nilai belum tersedia</td></tr>';
+    } else {
+        nilaiBody.innerHTML = nilai.map((row, index) => {
+            const isTuntas = row.keterangan === 'Tuntas';
+            const isRemedial = row.keterangan === 'Remedial';
+            const badgeClass = isTuntas ? 'bg-success' : (isRemedial ? 'bg-danger' : 'bg-secondary');
+            const remedialNote = row.status_remedial ? `<div class="small text-muted">Remedial: ${escapeHtml(row.status_remedial)}</div>` : '';
+
+            return `
+                <tr>
+                    <td class="text-center">${index + 1}</td>
+                    <td>${escapeHtml(row.nama_mapel)}</td>
+                    <td class="text-center">${formatNumber(row.kkm)}</td>
+                    <td class="text-center fw-semibold">${formatNumber(row.nilai_akhir)}</td>
+                    <td class="text-center">${escapeHtml(row.nilai_huruf || '-')}</td>
+                    <td class="text-center"><span class="badge ${badgeClass}">${escapeHtml(row.keterangan || '-')}</span>${remedialNote}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+};
+
 document.getElementById('editRaporModal').addEventListener('show.bs.modal', function(e) {
     const btn = e.relatedTarget;
     document.getElementById('modal-nama-siswa').textContent = btn.dataset.nama;
@@ -347,6 +504,36 @@ document.getElementById('editRaporModal').addEventListener('show.bs.modal', func
     } else {
         form.action = '<?= base_url('admin/rapor/store') ?>';
     }
+
+    document.getElementById('rapor-detail-loading').classList.remove('d-none');
+    document.getElementById('rapor-detail-content').classList.add('d-none');
+    setAlert('rapor-detail-error', '');
+
+    const idSiswa = btn.dataset.id;
+    const idTahunAjaran = btn.dataset.id_tahun_ajaran;
+    fetch(`<?= base_url('admin/rapor/detail') ?>/${idSiswa}/${idTahunAjaran}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(async (response) => {
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Detail rapor gagal dimuat.');
+            }
+            return payload;
+        })
+        .then((payload) => {
+            renderDetailRapor(payload);
+            document.getElementById('rapor-detail-content').classList.remove('d-none');
+        })
+        .catch((error) => {
+            setAlert('rapor-detail-error', error.message || 'Detail rapor gagal dimuat.');
+        })
+        .finally(() => {
+            document.getElementById('rapor-detail-loading').classList.add('d-none');
+        });
 });
 </script>
 

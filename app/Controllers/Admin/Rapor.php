@@ -176,6 +176,133 @@ class Rapor extends BaseController
         return redirect()->back()->with('success', $message);
     }
 
+    public function detail($id_siswa, $id_tahun_ajaran)
+    {
+        $idSiswa = (int) $id_siswa;
+        $idTahunAjaran = (int) $id_tahun_ajaran;
+
+        if ($idSiswa <= 0 || $idTahunAjaran <= 0) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Parameter siswa atau tahun ajaran tidak valid.',
+            ]);
+        }
+
+        $siswaModel = new SiswaModel();
+        $tahunAjaranModel = new TahunAjaranModel();
+        $raporModel = new RaporModel();
+        $db = \Config\Database::connect();
+
+        $siswa = $siswaModel->select('siswa.*, kelas.nama_kelas, kelas.tingkat')
+            ->join('kelas', 'kelas.id_kelas = siswa.id_kelas', 'left')
+            ->where('siswa.id_siswa', $idSiswa)
+            ->first();
+
+        if (!$siswa) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'success' => false,
+                'message' => 'Data siswa tidak ditemukan.',
+            ]);
+        }
+
+        $tahunAjaran = $tahunAjaranModel->find($idTahunAjaran);
+        if (!$tahunAjaran) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'success' => false,
+                'message' => 'Data tahun ajaran tidak ditemukan.',
+            ]);
+        }
+
+        $rapor = $raporModel->where('id_siswa', $idSiswa)
+            ->where('id_tahun_ajaran', $idTahunAjaran)
+            ->first();
+
+        $nilaiRows = $db->table('mata_pelajaran')
+            ->select('mata_pelajaran.id_mapel, mata_pelajaran.nama_mapel, mata_pelajaran.kelompok, nilai_akhir.id_nilai_akhir, nilai_akhir.nilai_akhir, nilai_akhir.nilai_huruf, nilai_akhir.status_kelulusan, kkm.nilai_kkm, remedial.id_remedial, remedial.status_remedial, remedial.tindak_lanjut')
+            ->join('mapel_kelas', 'mapel_kelas.id_mapel = mata_pelajaran.id_mapel AND mapel_kelas.id_kelas = ' . (int) $siswa['id_kelas'], 'inner')
+            ->join('nilai_akhir', 'nilai_akhir.id_mapel = mata_pelajaran.id_mapel AND nilai_akhir.id_siswa = ' . $idSiswa . ' AND nilai_akhir.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
+            ->join('kkm', 'kkm.id_mapel = mata_pelajaran.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
+            ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
+            ->orderBy('mata_pelajaran.kelompok', 'ASC')
+            ->orderBy('mata_pelajaran.nama_mapel', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        if (empty($nilaiRows)) {
+            $nilaiRows = $db->table('mata_pelajaran')
+                ->select('mata_pelajaran.id_mapel, mata_pelajaran.nama_mapel, mata_pelajaran.kelompok, nilai_akhir.id_nilai_akhir, nilai_akhir.nilai_akhir, nilai_akhir.nilai_huruf, nilai_akhir.status_kelulusan, kkm.nilai_kkm, remedial.id_remedial, remedial.status_remedial, remedial.tindak_lanjut')
+                ->join('nilai_akhir', 'nilai_akhir.id_mapel = mata_pelajaran.id_mapel AND nilai_akhir.id_siswa = ' . $idSiswa . ' AND nilai_akhir.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
+                ->join('kkm', 'kkm.id_mapel = mata_pelajaran.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
+                ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
+                ->where('nilai_akhir.id_siswa', $idSiswa)
+                ->where('nilai_akhir.id_tahun_ajaran', $idTahunAjaran)
+                ->orderBy('mata_pelajaran.kelompok', 'ASC')
+                ->orderBy('mata_pelajaran.nama_mapel', 'ASC')
+                ->get()
+                ->getResultArray();
+        }
+
+        $hasAnyNilai = false;
+        $nilai = array_map(static function (array $row) use (&$hasAnyNilai): array {
+            $statusKelulusan = trim((string) ($row['status_kelulusan'] ?? ''));
+            $hasNilai = $row['nilai_akhir'] !== null && $row['nilai_akhir'] !== '';
+            if ($hasNilai) {
+                $hasAnyNilai = true;
+            }
+
+            return [
+                'id_mapel' => (int) $row['id_mapel'],
+                'nama_mapel' => (string) ($row['nama_mapel'] ?? '-'),
+                'kelompok' => (string) ($row['kelompok'] ?? '-'),
+                'kkm' => $row['nilai_kkm'] !== null ? (float) $row['nilai_kkm'] : null,
+                'nilai_akhir' => $hasNilai ? (float) $row['nilai_akhir'] : null,
+                'nilai_huruf' => $row['nilai_huruf'] !== null && $row['nilai_huruf'] !== '' ? (string) $row['nilai_huruf'] : null,
+                'keterangan' => $statusKelulusan !== '' ? $statusKelulusan : 'Nilai belum tersedia',
+                'status_remedial' => $row['status_remedial'] ?? null,
+                'tindak_lanjut' => $row['tindak_lanjut'] ?? null,
+            ];
+        }, $nilaiRows);
+
+        $status = $raporModel->getFinalizationStatusForStudent($idSiswa, (int) $siswa['id_kelas'], $idTahunAjaran, $rapor ?: null);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Detail rapor berhasil dimuat.',
+            'data' => [
+                'siswa' => [
+                    'id_siswa' => $idSiswa,
+                    'nama_siswa' => $siswa['nama_siswa'] ?? '-',
+                    'nis' => $siswa['nis'] ?? '-',
+                    'nisn' => $siswa['nisn'] ?? '-',
+                    'id_kelas' => (int) ($siswa['id_kelas'] ?? 0),
+                    'nama_kelas' => $siswa['nama_kelas'] ?? '-',
+                ],
+                'tahun_ajaran' => [
+                    'id_tahun_ajaran' => $idTahunAjaran,
+                    'tahun_ajaran' => $tahunAjaran['tahun_ajaran'] ?? '-',
+                    'semester' => $tahunAjaran['semester'] ?? '-',
+                    'status_pengisian' => $tahunAjaran['status_pengisian'] ?? '-',
+                ],
+                'rapor' => [
+                    'id_rapor' => $rapor['id_rapor'] ?? null,
+                    'sakit' => (int) ($rapor['sakit'] ?? 0),
+                    'izin' => (int) ($rapor['izin'] ?? 0),
+                    'alpa' => (int) ($rapor['alpa'] ?? 0),
+                    'catatan_wali_kelas' => $rapor['catatan_wali_kelas'] ?? '',
+                    'status_kenaikan' => $rapor['status_kenaikan'] ?? '',
+                    'is_finalized' => !empty($rapor['is_finalized']),
+                    'exists' => !empty($rapor),
+                ],
+                'nilai' => $nilai,
+                'summary' => $status,
+                'messages' => [
+                    'rapor' => $rapor ? null : 'Draft rapor belum dibuat. Form edit akan membuat draft rapor saat disimpan.',
+                    'nilai' => empty($nilai) || !$hasAnyNilai ? 'Nilai belum tersedia.' : null,
+                ],
+            ],
+        ]);
+    }
+
     public function importAttendance()
     {
         $raporModel = new RaporModel();
