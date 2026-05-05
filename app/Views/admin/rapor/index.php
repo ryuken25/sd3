@@ -224,9 +224,9 @@
                                     data-izin="<?= $r['izin'] ?? 0 ?>"
                                     data-alpa="<?= $r['alpa'] ?? 0 ?>"
                                     data-catatan="<?= esc($r['catatan_wali_kelas'] ?? '') ?>"
-                                    data-status="<?= $r['status_kenaikan'] ?? '' ?>">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
+                                     data-status="<?= $r['status_kenaikan'] ?? '' ?>">
+                                    <i class="bi bi-file-earmark-text me-1"></i>Detail/Edit
+                                 </button>
                                 <form action="<?= base_url('admin/rapor/finalize/' . $r['id_siswa'] . '/' . ($filter_ta ?? '')) ?>" method="post" class="d-inline">
                                     <?= csrf_field() ?>
                                     <button type="submit" class="btn btn-sm btn-success" <?= (isset($selected_tahun_ajaran) && $selected_tahun_ajaran['status_pengisian'] === 'Kunci' && !empty($r['is_complete']) && empty($r['is_finalized'])) ? '' : 'disabled' ?> onclick="return confirm('Finalisasi rapor siswa ini?')">
@@ -298,6 +298,10 @@
                     </div>
                     <div id="rapor-detail-error" class="alert alert-danger border-0 shadow-sm mb-3 d-none"></div>
                     <div id="rapor-detail-content" class="d-none">
+                        <div class="alert alert-primary border-0 shadow-sm mb-3">
+                            <div class="fw-bold"><i class="bi bi-eye me-2"></i>Preview Isi Lembar Rapor</div>
+                            <div class="small mb-0">Bagian ini bersifat read-only untuk pengecekan isi rapor lengkap sebelum admin mengedit absensi, catatan wali kelas, atau status kenaikan.</div>
+                        </div>
                         <div class="card border-0 bg-light mb-3">
                             <div class="card-body">
                                 <h6 class="fw-bold mb-3"><i class="bi bi-person-vcard me-2"></i>Identitas Siswa</h6>
@@ -359,6 +363,30 @@
                                         <tr><td colspan="6" class="text-center text-muted py-3">Nilai belum tersedia</td></tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-lg-4">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-white fw-bold"><i class="bi bi-calendar-check me-2"></i>Absensi</div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between border-bottom py-2"><span>Sakit</span><strong><span id="detail-sakit">0</span> hari</strong></div>
+                                        <div class="d-flex justify-content-between border-bottom py-2"><span>Izin</span><strong><span id="detail-izin">0</span> hari</strong></div>
+                                        <div class="d-flex justify-content-between py-2"><span>Alpa</span><strong><span id="detail-alpa">0</span> hari</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-8">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-white fw-bold"><i class="bi bi-chat-left-text me-2"></i>Catatan dan Status</div>
+                                    <div class="card-body">
+                                        <div class="small text-muted mb-1">Catatan Wali Kelas</div>
+                                        <div class="border rounded bg-light p-3 mb-3" id="detail-catatan-preview">-</div>
+                                        <div class="small text-muted mb-1">Status Kenaikan Kelas</div>
+                                        <div id="detail-status-kenaikan-preview">-</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -459,6 +487,14 @@ const renderDetailRapor = (payload) => {
     document.getElementById('detail-kelengkapan').innerHTML = summary.is_complete
         ? '<span class="badge bg-success">Lengkap</span>'
         : '<span class="badge bg-danger">Belum lengkap</span>';
+
+    setText('detail-sakit', rapor.sakit ?? 0);
+    setText('detail-izin', rapor.izin ?? 0);
+    setText('detail-alpa', rapor.alpa ?? 0);
+    setText('detail-catatan-preview', rapor.catatan_wali_kelas || 'Belum ada catatan wali kelas.');
+    const statusKenaikan = rapor.status_kenaikan || 'Belum ditentukan';
+    const statusClass = statusKenaikan === 'Naik' ? 'bg-success' : (statusKenaikan === 'Lulus' ? 'bg-info' : (statusKenaikan === 'Tidak Naik' ? 'bg-danger' : 'bg-secondary'));
+    document.getElementById('detail-status-kenaikan-preview').innerHTML = `<span class="badge ${statusClass}">${escapeHtml(statusKenaikan)}</span>`;
 
     setAlert('detail-rapor-message', data.messages?.rapor || '');
     setAlert('detail-nilai-message', data.messages?.nilai || '');
