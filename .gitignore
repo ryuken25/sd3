@@ -111,6 +111,7 @@ tests/
 !public/
 !public/**
 !writable/
+!writable/index.html
 !writable/**/index.html
 
 # Exclude local public helper scripts after public assets are re-included
