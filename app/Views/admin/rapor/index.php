@@ -18,6 +18,73 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+<style>
+    #editRaporModal .modal-dialog {
+        height: calc(100vh - 1rem);
+        margin-top: .5rem;
+        margin-bottom: .5rem;
+    }
+
+    #editRaporModal .modal-content {
+        height: 100%;
+        max-height: calc(100vh - 1rem);
+        overflow: hidden;
+    }
+
+    #editRaporModal #raporForm {
+        display: flex;
+        flex: 1 1 auto;
+        min-height: 0;
+        flex-direction: column;
+    }
+
+    #editRaporModal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: calc(100vh - 180px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    #editRaporModal .modal-footer {
+        flex-shrink: 0;
+        background: #fff;
+        border-top: 1px solid rgba(0, 0, 0, .1);
+        box-shadow: 0 -.25rem .75rem rgba(0, 0, 0, .04);
+    }
+
+    #editRaporModal .table-responsive {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-width: 575.98px) {
+        #editRaporModal .modal-dialog {
+            height: 100vh;
+            margin: 0;
+        }
+
+        #editRaporModal .modal-content {
+            min-height: 100vh;
+            max-height: 100vh;
+            border-radius: 0;
+        }
+
+        #editRaporModal .modal-body {
+            max-height: calc(100vh - 150px);
+        }
+
+        #editRaporModal .modal-footer {
+            justify-content: stretch;
+        }
+
+        #editRaporModal .modal-footer .btn {
+            flex: 1 1 0;
+        }
+    }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="fw-bold text-pastel-primary mb-1"><i class="bi bi-file-earmark-text me-2"></i>Manajemen Rapor Siswa</h4>
@@ -300,7 +367,7 @@
 <?php endif; ?>
 
 <!-- Edit Rapor Modal -->
-<div class="modal fade" id="editRaporModal" tabindex="-1">
+<div class="modal fade" id="editRaporModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
