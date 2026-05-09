@@ -12,4 +12,12 @@ class UserModel extends Model
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
+
+    public function getActiveTeachers(): array
+    {
+        return $this->where('level', 'guru')
+            ->where('status', 'aktif')
+            ->orderBy('nama_lengkap', 'ASC')
+            ->findAll();
+    }
 }

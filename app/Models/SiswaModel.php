@@ -18,6 +18,7 @@ class SiswaModel extends Model
         'tanggal_lahir',
         'alamat',
         'id_kelas',
+        'id_tahun_ajaran',
         'id_user_ortu',
         'nama_ayah',
         'nama_ibu',

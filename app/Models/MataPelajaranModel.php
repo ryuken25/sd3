@@ -13,9 +13,10 @@ class MataPelajaranModel extends Model
 
     public function getWithClasses(?int $idKelas = null): array
     {
-        $builder = $this->select("mata_pelajaran.*, GROUP_CONCAT(kelas.nama_kelas ORDER BY kelas.tingkat ASC, kelas.nama_kelas ASC SEPARATOR ', ') AS daftar_kelas, GROUP_CONCAT(kelas.id_kelas ORDER BY kelas.tingkat ASC, kelas.nama_kelas ASC SEPARATOR ',') AS kelas_ids, MIN(kelas.tingkat) AS tingkat_urut", false)
+        $builder = $this->select("mata_pelajaran.*, GROUP_CONCAT(kelas.nama_kelas ORDER BY kelas.tingkat ASC, kelas.nama_kelas ASC SEPARATOR ', ') AS daftar_kelas, GROUP_CONCAT(kelas.id_kelas ORDER BY kelas.tingkat ASC, kelas.nama_kelas ASC SEPARATOR ',') AS kelas_ids, GROUP_CONCAT(CONCAT(kelas.nama_kelas, ': ', COALESCE(users.nama_lengkap, 'Belum diatur')) ORDER BY kelas.tingkat ASC, kelas.nama_kelas ASC SEPARATOR '||') AS daftar_pengampu, MIN(kelas.tingkat) AS tingkat_urut", false)
             ->join('mapel_kelas', 'mapel_kelas.id_mapel = mata_pelajaran.id_mapel', 'left')
             ->join('kelas', 'kelas.id_kelas = mapel_kelas.id_kelas', 'left')
+            ->join('users', 'users.id_user = mapel_kelas.id_guru', 'left')
             ->groupBy('mata_pelajaran.id_mapel')
             ->orderBy('tingkat_urut', 'ASC')
             ->orderBy('mata_pelajaran.kelompok', 'ASC')

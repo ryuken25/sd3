@@ -83,6 +83,7 @@
                         <th>Nama Mata Pelajaran</th>
                         <th>Kelompok</th>
                         <th>Berlaku untuk Kelas</th>
+                        <th>Guru Pengampu</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -91,6 +92,8 @@
                         <?php $no = 1;
                         foreach ($mapel as $m): ?>
                             <?php $selectedKelas = $assigned_by_mapel[(int) $m['id_mapel']] ?? []; ?>
+                            <?php $assignments = $assignments_by_mapel[(int) $m['id_mapel']] ?? []; ?>
+                            <?php $guruSelection = $guru_by_mapel_kelas[(int) $m['id_mapel']] ?? []; ?>
                             <tr>
                                 <td>
                                     <?= $no++ ?>
@@ -113,6 +116,24 @@
                                     <?php endif; ?>
                                 </td>
                                 <td>
+                                    <?php if (!empty($assignments)): ?>
+                                        <ul class="list-unstyled mb-0 small">
+                                            <?php foreach ($assignments as $assignment): ?>
+                                                <li class="mb-1">
+                                                    <span class="fw-semibold"><?= esc($assignment['nama_kelas'] ?? '-') ?>:</span>
+                                                    <?php if (!empty($assignment['nama_guru'])): ?>
+                                                        <?= esc($assignment['nama_guru']) ?>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">Belum diatur</span>
+                                                    <?php endif; ?>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php else: ?>
+                                        <span class="text-muted">Belum diatur</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
                                         data-bs-target="#editMapelModal<?= $m['id_mapel'] ?>"><i
                                             class="bi bi-pencil"></i></button>
@@ -123,7 +144,7 @@
                             </tr>
 
                             <div class="modal fade" id="editMapelModal<?= $m['id_mapel'] ?>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog">
+                                <div class="modal-dialog modal-lg">
                                     <div class="modal-content border-0 shadow">
                                         <div class="modal-header bg-pastel-sidebar text-pastel-primary border-bottom-0">
                                             <h5 class="modal-title fw-bold">Edit Mata Pelajaran</h5>
@@ -156,16 +177,47 @@
                                                     </select>
                                                 </div>
                                                 <div class="mb-3">
-                                                    <label class="form-label">Berlaku untuk Kelas <span
+                                                    <label class="form-label">Kelas & Guru Pengampu <span
                                                             class="text-danger">*</span></label>
-                                                    <select class="form-select" name="id_kelas[]" multiple size="6" required>
-                                                        <?php foreach ($kelas as $k): ?>
-                                                            <option value="<?= $k['id_kelas'] ?>" <?= in_array((int) $k['id_kelas'], $selectedKelas, true) ? 'selected' : '' ?>>
-                                                                <?= esc($k['nama_kelas']) ?>
-                                                            </option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                    <div class="form-text">Tekan Ctrl untuk memilih lebih dari satu kelas.</div>
+                                                    <div class="table-responsive border rounded">
+                                                        <table class="table table-sm align-middle mb-0">
+                                                            <thead class="table-light">
+                                                                <tr>
+                                                                    <th style="width: 42%">Kelas</th>
+                                                                    <th>Guru Pengampu</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <?php foreach ($kelas as $k): ?>
+                                                                    <?php $idKelas = (int) $k['id_kelas']; ?>
+                                                                    <tr>
+                                                                        <td>
+                                                                            <div class="form-check">
+                                                                                <input class="form-check-input" type="checkbox" name="id_kelas[]"
+                                                                                    value="<?= $idKelas ?>" id="edit_mapel_<?= $m['id_mapel'] ?>_kelas_<?= $idKelas ?>"
+                                                                                    <?= in_array($idKelas, $selectedKelas, true) ? 'checked' : '' ?>>
+                                                                                <label class="form-check-label" for="edit_mapel_<?= $m['id_mapel'] ?>_kelas_<?= $idKelas ?>">
+                                                                                    <?= esc($k['nama_kelas']) ?>
+                                                                                </label>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td>
+                                                                            <select class="form-select form-select-sm" name="id_guru[<?= $idKelas ?>]">
+                                                                                <option value="">Belum diatur</option>
+                                                                                <?php foreach ($guru as $g): ?>
+                                                                                    <option value="<?= $g['id_user'] ?>" <?= (int) ($guruSelection[$idKelas] ?? 0) === (int) $g['id_user'] ? 'selected' : '' ?>>
+                                                                                        <?= esc($g['nama_lengkap']) ?>
+                                                                                    </option>
+                                                                                <?php endforeach; ?>
+                                                                            </select>
+                                                                        </td>
+                                                                    </tr>
+                                                                <?php endforeach; ?>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="form-text">Centang minimal satu kelas yang memakai mapel ini, lalu pilih guru pengampu. Guru boleh dikosongkan jika belum ditentukan.</div>
+                                                    <input type="hidden" name="id_kelas[]" value="">
                                                 </div>
                                             </div>
                                             <div class="modal-footer bg-light border-top-0">
@@ -214,7 +266,7 @@
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">
+                            <td colspan="7" class="text-center py-4 text-muted">
                                 <?= !empty($filter_kelas) ? 'Belum ada mata pelajaran pada kelas ini.' : 'Belum ada data Mata Pelajaran.' ?>
                             </td>
                         </tr>
@@ -226,7 +278,7 @@
 </div>
 
 <div class="modal fade" id="tambahMapelModal" tabindex="-1" aria-labelledby="tambahMapelLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-pastel-sidebar text-pastel-primary border-bottom-0">
                 <h5 class="modal-title fw-bold" id="tambahMapelLabel">Tambah Mata Pelajaran</h5>
@@ -240,15 +292,44 @@
                         tidak tercampur antar kelas.
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Berlaku untuk Kelas <span class="text-danger">*</span></label>
-                        <select class="form-select" name="id_kelas[]" multiple size="6" required>
-                            <?php foreach ($kelas as $k): ?>
-                                <option value="<?= $k['id_kelas'] ?>" <?= (int) ($filter_kelas ?? 0) === (int) $k['id_kelas'] ? 'selected' : '' ?>>
-                                    <?= esc($k['nama_kelas']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div class="form-text">Tekan Ctrl untuk memilih lebih dari satu kelas.</div>
+                        <label class="form-label">Kelas & Guru Pengampu <span class="text-danger">*</span></label>
+                        <div class="table-responsive border rounded">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 42%">Kelas</th>
+                                        <th>Guru Pengampu</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($kelas as $k): ?>
+                                        <?php $idKelas = (int) $k['id_kelas']; ?>
+                                        <tr>
+                                            <td>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="id_kelas[]"
+                                                        value="<?= $idKelas ?>" id="add_mapel_kelas_<?= $idKelas ?>"
+                                                        <?= (int) ($filter_kelas ?? 0) === $idKelas ? 'checked' : '' ?>>
+                                                    <label class="form-check-label" for="add_mapel_kelas_<?= $idKelas ?>">
+                                                        <?= esc($k['nama_kelas']) ?>
+                                                    </label>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <select class="form-select form-select-sm" name="id_guru[<?= $idKelas ?>]">
+                                                    <option value="">Belum diatur</option>
+                                                    <?php foreach ($guru as $g): ?>
+                                                        <option value="<?= $g['id_user'] ?>"><?= esc($g['nama_lengkap']) ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="form-text">Centang minimal satu kelas yang memakai mapel ini, lalu pilih guru pengampu. Guru boleh dikosongkan jika belum ditentukan.</div>
+                        <input type="hidden" name="id_kelas[]" value="">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Kode / Singkatan <span class="text-danger">*</span></label>

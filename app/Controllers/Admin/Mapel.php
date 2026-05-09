@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\KelasModel;
 use App\Models\MapelKelasModel;
 use App\Models\MataPelajaranModel;
+use App\Models\UserModel;
 
 class Mapel extends BaseController
 {
@@ -14,21 +15,33 @@ class Mapel extends BaseController
         $mapelModel = new MataPelajaranModel();
         $kelasModel = new KelasModel();
         $mapelKelasModel = new MapelKelasModel();
+        $userModel = new UserModel();
         $filterKelas = (int) ($this->request->getGet('id_kelas') ?? 0);
 
         $mapel = $mapelModel->getWithClasses($filterKelas > 0 ? $filterKelas : null);
-        $assignedRows = $mapelKelasModel->findAll();
+        $assignmentsByMapel = $mapelKelasModel->getAssignmentsByMapel();
+        $assignedRows = [];
+        foreach ($assignmentsByMapel as $assignmentRows) {
+            $assignedRows = array_merge($assignedRows, $assignmentRows);
+        }
         $assignedByMapel = [];
+        $guruByMapelKelas = [];
         foreach ($assignedRows as $row) {
-            $assignedByMapel[(int) $row['id_mapel']][] = (int) $row['id_kelas'];
+            $idMapel = (int) $row['id_mapel'];
+            $idKelas = (int) $row['id_kelas'];
+            $assignedByMapel[$idMapel][] = $idKelas;
+            $guruByMapelKelas[$idMapel][$idKelas] = !empty($row['id_guru']) ? (int) $row['id_guru'] : null;
         }
 
         $data = [
             'title' => 'Data Mata Pelajaran',
             'mapel' => $mapel,
             'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
+            'guru' => $userModel->getActiveTeachers(),
             'filter_kelas' => $filterKelas,
             'assigned_by_mapel' => $assignedByMapel,
+            'assignments_by_mapel' => $assignmentsByMapel,
+            'guru_by_mapel_kelas' => $guruByMapelKelas,
         ];
         return view('admin/mapel/index', $data);
     }
@@ -61,7 +74,7 @@ class Mapel extends BaseController
 
         if ($mapelModel->insert($mapelData)) {
             $idMapel = (int) $mapelModel->getInsertID();
-            $mapelKelasModel->syncMapelClasses($idMapel, $kelasIds);
+            $mapelKelasModel->syncMapelClasses($idMapel, $kelasIds, $this->normalizeGuruAssignments($kelasIds));
             return redirect()->to(base_url('admin/mapel'))->with('success', 'Mata Pelajaran berhasil ditambahkan dan sudah dikelompokkan berdasarkan kelas.');
         } else {
             return redirect()->back()->with('error', 'Gagal menyimpan data ke database.');
@@ -100,7 +113,7 @@ class Mapel extends BaseController
         ];
 
         if ($mapelModel->update($id, $mapelData)) {
-            $mapelKelasModel->syncMapelClasses((int) $id, $kelasIds);
+            $mapelKelasModel->syncMapelClasses((int) $id, $kelasIds, $this->normalizeGuruAssignments($kelasIds));
             return redirect()->to(base_url('admin/mapel'))->with('success', 'Data Mata Pelajaran dan pembagian kelas berhasil diperbarui.');
         } else {
             return redirect()->back()->with('error', 'Gagal memperbarui data.');
@@ -154,5 +167,23 @@ class Mapel extends BaseController
         }
 
         return null;
+    }
+
+    private function normalizeGuruAssignments(array $kelasIds): array
+    {
+        $kelasIds = array_values(array_unique(array_filter(array_map('intval', $kelasIds))));
+        $postedGuru = $this->request->getPost('id_guru');
+        $postedGuru = is_array($postedGuru) ? $postedGuru : [];
+
+        $userModel = new UserModel();
+        $validGuruIds = array_map('intval', $userModel->where('level', 'guru')->findColumn('id_user') ?? []);
+        $guruByKelas = [];
+
+        foreach ($kelasIds as $idKelas) {
+            $idGuru = isset($postedGuru[$idKelas]) ? (int) $postedGuru[$idKelas] : 0;
+            $guruByKelas[$idKelas] = $idGuru > 0 && in_array($idGuru, $validGuruIds, true) ? $idGuru : null;
+        }
+
+        return $guruByKelas;
     }
 }

@@ -22,7 +22,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="mb-0 text-pastel-primary fw-bold">Manajemen Data Siswa</h4>
-        <p class="text-muted mb-0">Gunakan filter kelas agar data siswa lebih rapi dan mudah dicek.</p>
+        <p class="text-muted mb-0">Gunakan filter tahun ajaran dan kelas agar data siswa lebih rapi dan mudah dicek.</p>
     </div>
     <button type="button" class="btn btn-primary bg-pastel-primary border-0 shadow-sm" data-bs-toggle="modal"
         data-bs-target="#tambahSiswaModal">
@@ -45,10 +45,23 @@
 <?php endif; ?>
 
 <div class="card border-0 shadow-sm rounded-3 mb-4">
-    <div class="card-header bg-white fw-bold"><i class="bi bi-funnel me-2"></i>Filter Kelas</div>
+    <div class="card-header bg-white fw-bold"><i class="bi bi-funnel me-2"></i>Filter Data Siswa</div>
     <div class="card-body">
         <form method="get" action="<?= base_url('admin/siswa') ?>" class="row g-3 align-items-end">
-            <div class="col-md-8">
+            <div class="col-md-4">
+                <label class="form-label">Tahun Ajaran</label>
+                <select name="id_tahun_ajaran" class="form-select">
+                    <option value="">Gunakan Tahun Ajaran Aktif</option>
+                    <?php foreach ($tahun_ajaran as $ta): ?>
+                        <option value="<?= $ta['id_tahun_ajaran'] ?>" <?= (int) ($filter_ta ?? 0) === (int) $ta['id_tahun_ajaran'] ? 'selected' : '' ?>>
+                            <?= esc($ta['tahun_ajaran']) ?> - Semester <?= esc($ta['semester']) ?>
+                            <?= ($ta['aktif'] ?? '') === 'aktif' ? '(Aktif)' : '' ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="form-text">Jika belum memilih, sistem memakai tahun ajaran aktif bila tersedia.</div>
+            </div>
+            <div class="col-md-4">
                 <label class="form-label">Kelas</label>
                 <select name="id_kelas" class="form-select">
                     <option value="">Semua Kelas</option>
@@ -69,7 +82,7 @@
         <div class="alert alert-light border mt-3 mb-0">
             <i class="bi bi-people me-1"></i>
             Jumlah siswa yang sedang tampil: <strong><?= esc($jumlah_siswa_tampil ?? count($siswa ?? [])) ?></strong>
-            <?= !empty($filter_kelas) ? ' pada kelas terpilih.' : ' dari semua kelas.' ?>
+            <?= !empty($filter_ta) ? ' pada tahun ajaran terpilih' : ' dari semua tahun ajaran' ?><?= !empty($filter_kelas) ? ' dan kelas terpilih.' : ' dan semua kelas.' ?>
         </div>
     </div>
 </div>
@@ -85,6 +98,7 @@
                         <th>Nama Lengkap</th>
                         <th>Jenis Kelamin</th>
                         <th>Kelas</th>
+                        <th>Tahun Ajaran</th>
                         <th>Orang Tua / Wali</th>
                         <th>No Telp Ortu</th>
                         <th>Status</th>
@@ -104,6 +118,14 @@
                                 <td><?= esc($s['nama_siswa']) ?></td>
                                 <td><?= $s['jenis_kelamin'] === 'L' ? 'Laki-Laki' : 'Perempuan' ?></td>
                                 <td><span class="badge bg-pastel-info"><?= esc($s['nama_kelas'] ?? 'Belum ada') ?></span></td>
+                                <td>
+                                    <?php if (!empty($s['id_tahun_ajaran'])): ?>
+                                        <?= esc($s['tahun_ajaran'] ?? '-') ?><br>
+                                        <small class="text-muted">Semester <?= esc($s['semester'] ?? '-') ?></small>
+                                    <?php else: ?>
+                                        <span class="text-muted">Belum diatur</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <?= esc(($s['nama_ayah'] ?? '') ?: (($s['nama_ibu'] ?? '') ?: '—')) ?><br>
                                     <small class="text-muted fst-italic">Auto-Akun: ortu_<?= esc($s['nis']) ?></small>
@@ -189,9 +211,9 @@
                                                     </div>
                                                 </div>
                                                 <div class="row mb-4">
-                                                    <div class="col-md-6">
-                                                        <label class="form-label">Kelas <span
-                                                                class="text-danger">*</span></label>
+                                                     <div class="col-md-6">
+                                                         <label class="form-label">Kelas <span
+                                                                 class="text-danger">*</span></label>
                                                         <select class="form-select" name="id_kelas" required>
                                                             <option value="">-- Pilih Kelas --</option>
                                                             <?php foreach ($kelas as $k): ?>
@@ -199,12 +221,28 @@
                                                                     <?= $s['id_kelas'] == $k['id_kelas'] ? 'selected' : '' ?>>
                                                                     <?= esc($k['nama_kelas']) ?>
                                                                 </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label">Status</label>
-                                                        <select class="form-select" name="status">
+                                                             <?php endforeach; ?>
+                                                         </select>
+                                                     </div>
+                                                     <div class="col-md-6">
+                                                         <label class="form-label">Tahun Ajaran <span
+                                                                 class="text-danger">*</span></label>
+                                                         <select class="form-select" name="id_tahun_ajaran" required>
+                                                             <option value="">-- Pilih Tahun Ajaran --</option>
+                                                             <?php foreach ($tahun_ajaran as $ta): ?>
+                                                                 <option value="<?= $ta['id_tahun_ajaran'] ?>"
+                                                                     <?= (int) ($s['id_tahun_ajaran'] ?? 0) === (int) $ta['id_tahun_ajaran'] ? 'selected' : '' ?>>
+                                                                     <?= esc($ta['tahun_ajaran']) ?> - Semester <?= esc($ta['semester']) ?>
+                                                                     <?= ($ta['aktif'] ?? '') === 'aktif' ? '(Aktif)' : '' ?>
+                                                                 </option>
+                                                             <?php endforeach; ?>
+                                                         </select>
+                                                     </div>
+                                                 </div>
+                                                 <div class="row mb-4">
+                                                     <div class="col-md-6">
+                                                         <label class="form-label">Status</label>
+                                                         <select class="form-select" name="status">
                                                             <option value="aktif" <?= $s['status'] === 'aktif' ? 'selected' : '' ?>>Aktif</option>
                                                             <option value="lulus" <?= $s['status'] === 'lulus' ? 'selected' : '' ?>>Lulus</option>
                                                             <option value="pindah" <?= $s['status'] === 'pindah' ? 'selected' : '' ?>>Pindah</option>
@@ -320,10 +358,10 @@
                             </div>
 
                         <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">
-                                <?= !empty($filter_kelas) ? 'Belum ada siswa pada kelas ini.' : 'Belum ada data siswa.' ?>
+                     <?php else: ?>
+                         <tr>
+                            <td colspan="10" class="text-center py-4 text-muted">
+                                <?= (!empty($filter_ta) || !empty($filter_kelas)) ? 'Belum ada siswa pada filter ini.' : 'Belum ada data siswa.' ?>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -395,6 +433,20 @@
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tahun Ajaran <span class="text-danger">*</span></label>
+                            <select class="form-select" name="id_tahun_ajaran" required>
+                                <option value="">-- Pilih Tahun Ajaran --</option>
+                                <?php foreach ($tahun_ajaran as $ta): ?>
+                                    <option value="<?= $ta['id_tahun_ajaran'] ?>" <?= (int) ($filter_ta ?? 0) === (int) $ta['id_tahun_ajaran'] ? 'selected' : '' ?>>
+                                        <?= esc($ta['tahun_ajaran']) ?> - Semester <?= esc($ta['semester']) ?>
+                                        <?= ($ta['aktif'] ?? '') === 'aktif' ? '(Aktif)' : '' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-4">
                         <div class="col-md-6">
                             <label class="form-label">Alamat</label>
                             <textarea class="form-control" name="alamat" rows="1"></textarea>
