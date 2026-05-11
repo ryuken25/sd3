@@ -24,6 +24,7 @@ class SD3MekarsariSeeder extends Seeder
         $this->call(SD3_GuruSeeder::class);
         $this->call(SD3_KelasSeeder::class);
         $this->call(SD3_MapelSeeder::class);
+        $this->call(SD3_MapelKelasGuruSeeder::class);
         $this->call(SD3_SiswaSeeder::class);
         $this->call(SD3_KkmSeeder::class);
         $this->call(SD3_NilaiSeeder::class);
