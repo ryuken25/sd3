@@ -33,7 +33,7 @@ class MapelKelasModel extends Model
         ]);
     }
 
-    public function getAssignmentsByMapel(?int $idMapel = null): array
+    public function getAssignmentsByMapel(?int $idMapel = null, ?int $idKelas = null): array
     {
         $builder = $this->select('mapel_kelas.*, kelas.nama_kelas, kelas.tingkat, users.nama_lengkap AS nama_guru')
             ->join('kelas', 'kelas.id_kelas = mapel_kelas.id_kelas', 'left')
@@ -43,6 +43,10 @@ class MapelKelasModel extends Model
 
         if ($idMapel !== null && $idMapel > 0) {
             $builder->where('mapel_kelas.id_mapel', $idMapel);
+        }
+
+        if ($idKelas !== null && $idKelas > 0) {
+            $builder->where('mapel_kelas.id_kelas', $idKelas);
         }
 
         $rows = $builder->findAll();

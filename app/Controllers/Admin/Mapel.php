@@ -19,9 +19,18 @@ class Mapel extends BaseController
         $filterKelas = (int) ($this->request->getGet('id_kelas') ?? 0);
 
         $mapel = $mapelModel->getWithClasses($filterKelas > 0 ? $filterKelas : null);
-        $assignmentsByMapel = $mapelKelasModel->getAssignmentsByMapel();
+
+        // Filtered: hanya assignment untuk kelas yg dipilih — dipakai untuk kolom "Guru Pengampu" di tabel.
+        $assignmentsByMapel = $mapelKelasModel->getAssignmentsByMapel(
+            null,
+            $filterKelas > 0 ? $filterKelas : null
+        );
+
+        // Unfiltered: semua assignment apa adanya — dipakai untuk state edit modal (checkbox + dropdown guru per kelas)
+        // supaya admin tetap bisa kelola semua kelas walau filter aktif.
+        $allAssignmentsByMapel = $mapelKelasModel->getAssignmentsByMapel();
         $assignedRows = [];
-        foreach ($assignmentsByMapel as $assignmentRows) {
+        foreach ($allAssignmentsByMapel as $assignmentRows) {
             $assignedRows = array_merge($assignedRows, $assignmentRows);
         }
         $assignedByMapel = [];
