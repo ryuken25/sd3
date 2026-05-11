@@ -142,127 +142,6 @@
                                             class="bi bi-trash"></i></button>
                                 </td>
                             </tr>
-
-                            <div class="modal fade" id="editMapelModal<?= $m['id_mapel'] ?>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-lg">
-                                    <div class="modal-content border-0 shadow">
-                                        <div class="modal-header bg-pastel-sidebar text-pastel-primary border-bottom-0">
-                                            <h5 class="modal-title fw-bold">Edit Mata Pelajaran</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                aria-label="Close"></button>
-                                        </div>
-                                        <form action="<?= base_url('admin/mapel/update/' . $m['id_mapel']) ?>" method="post">
-                                            <?= csrf_field() ?>
-                                            <div class="modal-body p-4">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Kode / Singkatan <span
-                                                            class="text-danger">*</span></label>
-                                                    <input type="text" class="form-control" name="kode_mapel" required
-                                                        value="<?= esc($m['kode_mapel']) ?>">
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Nama Mata Pelajaran <span
-                                                            class="text-danger">*</span></label>
-                                                    <input type="text" class="form-control" name="nama_mapel" required
-                                                        value="<?= esc($m['nama_mapel']) ?>">
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Kelompok Mapel <span
-                                                            class="text-danger">*</span></label>
-                                                    <select class="form-select" name="kelompok" required>
-                                                        <option value="A" <?= $m['kelompok'] == 'A' ? 'selected' : '' ?>>Kelompok A
-                                                            (Nasional)</option>
-                                                        <option value="B" <?= $m['kelompok'] == 'B' ? 'selected' : '' ?>>Kelompok B
-                                                            (Muatan Lokal)</option>
-                                                    </select>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">Kelas & Guru Pengampu <span
-                                                            class="text-danger">*</span></label>
-                                                    <div class="table-responsive border rounded">
-                                                        <table class="table table-sm align-middle mb-0">
-                                                            <thead class="table-light">
-                                                                <tr>
-                                                                    <th style="width: 42%">Kelas</th>
-                                                                    <th>Guru Pengampu</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                <?php foreach ($kelas as $k): ?>
-                                                                    <?php $idKelas = (int) $k['id_kelas']; ?>
-                                                                    <tr>
-                                                                        <td>
-                                                                            <div class="form-check">
-                                                                                <input class="form-check-input" type="checkbox" name="id_kelas[]"
-                                                                                    value="<?= $idKelas ?>" id="edit_mapel_<?= $m['id_mapel'] ?>_kelas_<?= $idKelas ?>"
-                                                                                    <?= in_array($idKelas, $selectedKelas, true) ? 'checked' : '' ?>>
-                                                                                <label class="form-check-label" for="edit_mapel_<?= $m['id_mapel'] ?>_kelas_<?= $idKelas ?>">
-                                                                                    <?= esc($k['nama_kelas']) ?>
-                                                                                </label>
-                                                                            </div>
-                                                                        </td>
-                                                                        <td>
-                                                                            <select class="form-select form-select-sm" name="id_guru[<?= $idKelas ?>]">
-                                                                                <option value="">Belum diatur</option>
-                                                                                <?php foreach ($guru as $g): ?>
-                                                                                    <option value="<?= $g['id_user'] ?>" <?= (int) ($guruSelection[$idKelas] ?? 0) === (int) $g['id_user'] ? 'selected' : '' ?>>
-                                                                                        <?= esc($g['nama_lengkap']) ?>
-                                                                                    </option>
-                                                                                <?php endforeach; ?>
-                                                                            </select>
-                                                                        </td>
-                                                                    </tr>
-                                                                <?php endforeach; ?>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                    <div class="form-text">Centang minimal satu kelas yang memakai mapel ini, lalu pilih guru pengampu. Guru boleh dikosongkan jika belum ditentukan.</div>
-                                                    <input type="hidden" name="id_kelas[]" value="">
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer bg-light border-top-0">
-                                                <button type="button" class="btn btn-secondary"
-                                                    data-bs-dismiss="modal">Batal</button>
-                                                <button type="submit"
-                                                    class="btn btn-primary bg-pastel-primary border-0 shadow-sm"><i
-                                                        class="bi bi-save me-1"></i> Simpan Perubahan</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="modal fade" id="hapusMapelModal<?= $m['id_mapel'] ?>" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-sm">
-                                    <div class="modal-content border-0 shadow">
-                                        <div class="modal-header bg-danger text-white border-bottom-0">
-                                            <h5 class="modal-title fw-bold">Konfirmasi Hapus</h5>
-                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                                aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body text-center p-4">
-                                            <i class="bi bi-exclamation-triangle-fill text-danger fs-1 mb-3 d-block"></i>
-                                            <p>Yakin ingin menghapus mata pelajaran
-                                                <strong>
-                                                    <?= esc($m['nama_mapel']) ?>
-                                                </strong>?
-                                            </p>
-                                            <small class="text-muted">Data KKM, nilai, dan relasi kelas yang terkait juga dapat
-                                                terhapus.</small>
-                                        </div>
-                                        <div class="modal-footer border-top-0 justify-content-center">
-                                            <button type="button" class="btn btn-secondary"
-                                                data-bs-dismiss="modal">Batal</button>
-                                            <form action="<?= base_url('admin/mapel/delete/' . $m['id_mapel']) ?>" method="post"
-                                                class="d-inline">
-                                                <?= csrf_field() ?>
-                                                <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>
-                                                    Hapus</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
@@ -276,6 +155,135 @@
         </div>
     </div>
 </div>
+
+<?php if (!empty($mapel)): ?>
+    <?php foreach ($mapel as $m): ?>
+        <?php $selectedKelas = $assigned_by_mapel[(int) $m['id_mapel']] ?? []; ?>
+        <?php $assignments = $assignments_by_mapel[(int) $m['id_mapel']] ?? []; ?>
+        <?php $guruSelection = $guru_by_mapel_kelas[(int) $m['id_mapel']] ?? []; ?>
+
+        <div class="modal fade" id="editMapelModal<?= $m['id_mapel'] ?>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-pastel-sidebar text-pastel-primary border-bottom-0">
+                        <h5 class="modal-title fw-bold">Edit Mata Pelajaran</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <form action="<?= base_url('admin/mapel/update/' . $m['id_mapel']) ?>" method="post">
+                        <?= csrf_field() ?>
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label">Kode / Singkatan <span
+                                        class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="kode_mapel" required
+                                    value="<?= esc($m['kode_mapel']) ?>">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Nama Mata Pelajaran <span
+                                        class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="nama_mapel" required
+                                    value="<?= esc($m['nama_mapel']) ?>">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Kelompok Mapel <span
+                                        class="text-danger">*</span></label>
+                                <select class="form-select" name="kelompok" required>
+                                    <option value="A" <?= $m['kelompok'] == 'A' ? 'selected' : '' ?>>Kelompok A
+                                        (Nasional)</option>
+                                    <option value="B" <?= $m['kelompok'] == 'B' ? 'selected' : '' ?>>Kelompok B
+                                        (Muatan Lokal)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Kelas & Guru Pengampu <span
+                                        class="text-danger">*</span></label>
+                                <div class="table-responsive border rounded">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 42%">Kelas</th>
+                                                <th>Guru Pengampu</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($kelas as $k): ?>
+                                                <?php $idKelas = (int) $k['id_kelas']; ?>
+                                                <tr>
+                                                    <td>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" name="id_kelas[]"
+                                                                value="<?= $idKelas ?>" id="edit_mapel_<?= $m['id_mapel'] ?>_kelas_<?= $idKelas ?>"
+                                                                <?= in_array($idKelas, $selectedKelas, true) ? 'checked' : '' ?>>
+                                                            <label class="form-check-label" for="edit_mapel_<?= $m['id_mapel'] ?>_kelas_<?= $idKelas ?>">
+                                                                <?= esc($k['nama_kelas']) ?>
+                                                            </label>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <select class="form-select form-select-sm" name="id_guru[<?= $idKelas ?>]">
+                                                            <option value="">Belum diatur</option>
+                                                            <?php foreach ($guru as $g): ?>
+                                                                <option value="<?= $g['id_user'] ?>" <?= (int) ($guruSelection[$idKelas] ?? 0) === (int) $g['id_user'] ? 'selected' : '' ?>>
+                                                                    <?= esc($g['nama_lengkap']) ?>
+                                                                </option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="form-text">Centang minimal satu kelas yang memakai mapel ini, lalu pilih guru pengampu. Guru boleh dikosongkan jika belum ditentukan.</div>
+                                <input type="hidden" name="id_kelas[]" value="">
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-top-0">
+                            <button type="button" class="btn btn-secondary"
+                                data-bs-dismiss="modal">Batal</button>
+                            <button type="submit"
+                                class="btn btn-primary bg-pastel-primary border-0 shadow-sm"><i
+                                    class="bi bi-save me-1"></i> Simpan Perubahan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="hapusMapelModal<?= $m['id_mapel'] ?>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-danger text-white border-bottom-0">
+                        <h5 class="modal-title fw-bold">Konfirmasi Hapus</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center p-4">
+                        <i class="bi bi-exclamation-triangle-fill text-danger fs-1 mb-3 d-block"></i>
+                        <p>Yakin ingin menghapus mata pelajaran
+                            <strong>
+                                <?= esc($m['nama_mapel']) ?>
+                            </strong>?
+                        </p>
+                        <small class="text-muted">Data KKM, nilai, dan relasi kelas yang terkait juga dapat
+                            terhapus.</small>
+                    </div>
+                    <div class="modal-footer border-top-0 justify-content-center">
+                        <button type="button" class="btn btn-secondary"
+                            data-bs-dismiss="modal">Batal</button>
+                        <form action="<?= base_url('admin/mapel/delete/' . $m['id_mapel']) ?>" method="post"
+                            class="d-inline">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>
+                                Hapus</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <?php endforeach; ?>
+<?php endif; ?>
 
 <div class="modal fade" id="tambahMapelModal" tabindex="-1" aria-labelledby="tambahMapelLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
