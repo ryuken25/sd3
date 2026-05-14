@@ -41,7 +41,8 @@ class Rapor extends BaseController
             $builder = $siswaModel
                 ->select("siswa.id_siswa, siswa.nama_siswa, siswa.nis, siswa.id_kelas, rapor.id_rapor, rapor.id_tahun_ajaran, rapor.sakit, rapor.izin, rapor.alpa, rapor.catatan_wali_kelas, rapor.status_kenaikan, rapor.is_finalized, rapor.finalized_at, {$remedialSubQuery}", false)
                 ->join('rapor', 'rapor.id_siswa = siswa.id_siswa AND rapor.id_tahun_ajaran = ' . $filterTaId, 'left')
-                ->where('siswa.status', 'aktif');
+                ->where('siswa.status', 'aktif')
+                ->where('siswa.id_tahun_ajaran', $filterTaId);
 
             if ($filter_kelas) {
                 $builder->where('siswa.id_kelas', $filter_kelas);
