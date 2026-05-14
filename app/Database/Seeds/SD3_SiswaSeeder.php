@@ -131,10 +131,22 @@ class SD3_SiswaSeeder extends Seeder
     {
         echo "▶ [5/9] Siswa ... ";
 
+        // Ambil TA aktif agar semua siswa ter-assign ke periode yang benar
+        $taAktif = $this->db->table('tahun_ajaran')
+            ->where('aktif', 'aktif')
+            ->orderBy('id_tahun_ajaran', 'DESC')
+            ->get()->getRow();
+
+        if (!$taAktif) {
+            echo "\n   ✗ Tidak ada Tahun Ajaran aktif. Jalankan SD3_TahunAjaranSeeder dulu.\n";
+            return;
+        }
+        $idTaAktif = (int) $taAktif->id_tahun_ajaran;
+
         $siswaPerKelas = $this->getSiswaPerKelas();
         $inserted = 0;
-        $updated = 0;
-        $counter = []; // counter per kelas untuk validasi
+        $updated  = 0;
+        $counter  = [];
 
         foreach ($siswaPerKelas as $tingkat => $siswaList) {
             // Cari id_kelas
@@ -172,14 +184,15 @@ class SD3_SiswaSeeder extends Seeder
                 }
 
                 $record = [
-                    'nisn' => $nisn ?: null,
-                    'nis' => $nis ?: ('SIS' . str_pad($tingkat, 1) . str_pad($inserted + $updated + 1, 3, '0', STR_PAD_LEFT)),
-                    'nama_siswa' => $nama,
-                    'jenis_kelamin' => $jk,
-                    'id_kelas' => $kelasId,
-                    'password' => password_hash((string) ($nis ?: $nisn ?: '12345'), PASSWORD_DEFAULT),
-                    'status' => 'aktif',
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'nisn'            => $nisn ?: null,
+                    'nis'             => $nis ?: ('SIS' . str_pad($tingkat, 1) . str_pad($inserted + $updated + 1, 3, '0', STR_PAD_LEFT)),
+                    'nama_siswa'      => $nama,
+                    'jenis_kelamin'   => $jk,
+                    'id_kelas'        => $kelasId,
+                    'id_tahun_ajaran' => $idTaAktif,
+                    'password'        => password_hash((string) ($nis ?: $nisn ?: '12345'), PASSWORD_DEFAULT),
+                    'status'          => 'aktif',
+                    'updated_at'      => date('Y-m-d H:i:s'),
                 ];
 
                 $ortuUsername = 'ortu_' . $record['nis'];

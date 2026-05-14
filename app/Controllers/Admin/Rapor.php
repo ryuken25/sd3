@@ -8,6 +8,7 @@ use App\Models\RaporModel;
 use App\Models\SiswaModel;
 use App\Models\TahunAjaranModel;
 use App\Models\KelasModel;
+use App\Services\AcademicPeriodService;
 
 class Rapor extends BaseController
 {
@@ -74,16 +75,24 @@ class Rapor extends BaseController
             }
         }
 
+        $activePeriodId = null;
+        try {
+            $activePeriodId = (new AcademicPeriodService())->getActivePeriod()['id_tahun_ajaran'];
+        } catch (\RuntimeException $e) {
+            // tidak ada periode aktif — biarkan null
+        }
+
         $data = [
-            'title' => 'Manajemen Rapor',
-            'rapor_data' => $rapor_data,
-            'siswa' => $siswaModel->where('status', 'aktif')->findAll(),
-            'tahun_ajaran' => $tahunAjaranModel->findAll(),
-            'kelas' => $kelasModel->findAll(),
-            'filter_ta' => $filter_ta,
-            'filter_kelas' => $filter_kelas,
+            'title'                 => 'Manajemen Rapor',
+            'rapor_data'            => $rapor_data,
+            'siswa'                 => $siswaModel->where('status', 'aktif')->findAll(),
+            'tahun_ajaran'          => $tahunAjaranModel->findAll(),
+            'kelas'                 => $kelasModel->findAll(),
+            'filter_ta'             => $filter_ta,
+            'filter_kelas'          => $filter_kelas,
             'selected_tahun_ajaran' => $selectedTahunAjaran,
-            'summary' => $summary,
+            'summary'               => $summary,
+            'active_period_id'      => $activePeriodId,
         ];
 
         return view('admin/rapor/index', $data);

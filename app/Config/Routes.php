@@ -51,10 +51,15 @@ $routes->group('admin', ['filter' => ['auth', 'role:admin']], static function ($
     $routes->post('mapel/update/(:num)', 'Admin\Mapel::update/$1');
     $routes->post('mapel/delete/(:num)', 'Admin\Mapel::delete/$1');
 
-    // Import/Export
+    // Import/Export — Siswa
     $routes->get('import', 'Admin\Import::index');
     $routes->post('import/process', 'Admin\Import::process');
     $routes->get('import/template', 'Admin\Import::downloadTemplate');
+
+    // Import Nilai
+    $routes->get('import-nilai', 'Admin\ImportNilai::index');
+    $routes->get('import-nilai/template/(:num)', 'Admin\ImportNilai::downloadTemplate/$1');
+    $routes->post('import-nilai/upload', 'Admin\ImportNilai::upload');
 
     // Request Buka Nilai (Approval System)
     $routes->get('request-buka-nilai', 'Admin\RequestBukaNilai::index');

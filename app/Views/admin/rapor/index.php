@@ -137,8 +137,14 @@
                 <select name="id_tahun_ajaran" class="form-select">
                     <option value="">-- Pilih Tahun Ajaran --</option>
                     <?php foreach ($tahun_ajaran as $ta): ?>
+                    <?php
+                        // Default ke periode aktif kalau filter belum dipilih
+                        $isSelected = isset($filter_ta)
+                            ? ($filter_ta == $ta['id_tahun_ajaran'])
+                            : (!$filter_ta && isset($active_period_id) && $ta['id_tahun_ajaran'] == $active_period_id);
+                    ?>
                     <option value="<?= $ta['id_tahun_ajaran'] ?>"
-                        <?= (isset($filter_ta) && $filter_ta == $ta['id_tahun_ajaran']) ? 'selected' : '' ?>>
+                        <?= $isSelected ? 'selected' : '' ?>>
                         <?= esc($ta['tahun_ajaran']) ?> - Semester <?= esc($ta['semester']) ?>
                         <?= $ta['aktif'] === 'aktif' ? '(Aktif)' : '' ?>
                     </option>
@@ -335,6 +341,27 @@
                 <input type="hidden" name="id_tahun_ajaran" value="<?= esc($filter_ta ?? '') ?>">
                 <input type="hidden" name="id_kelas" value="<?= esc($filter_kelas ?? '') ?>">
                 <div class="modal-body">
+                    <?php
+                        $taLabel = '';
+                        foreach ($tahun_ajaran as $ta) {
+                            if ($ta['id_tahun_ajaran'] == $filter_ta) {
+                                $taLabel = esc($ta['tahun_ajaran']) . ' - Semester ' . esc($ta['semester']);
+                                break;
+                            }
+                        }
+                        $kelasLabel = '';
+                        foreach ($kelas as $k) {
+                            if ($k['id_kelas'] == $filter_kelas) {
+                                $kelasLabel = 'Kelas ' . esc($k['tingkat']) . ' — ' . esc($k['nama_kelas']);
+                                break;
+                            }
+                        }
+                    ?>
+                    <div class="alert alert-info border-0 small mb-3">
+                        <strong><i class="bi bi-calendar-check me-1"></i>Target import:</strong>
+                        <?= $taLabel ?> / <?= $kelasLabel ?>
+                        <br><span class="text-muted">Data absensi akan masuk ke rapor periode dan kelas ini.</span>
+                    </div>
                     <div class="alert alert-light border">
                         <div class="small text-muted mb-1">Mode import</div>
                         <div class="fw-semibold">Sinkronisasi rekap kehadiran bulanan ke draft rapor kelas yang sedang difilter</div>
