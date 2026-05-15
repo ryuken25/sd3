@@ -16,9 +16,21 @@ use CodeIgniter\Database\Seeder;
  */
 class SD3_MapelKelasGuruSeeder extends Seeder
 {
+    private array $mapelPerKelas = [
+        1 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
+        2 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
+        3 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
+        4 => ['Matematika', 'Bahasa Indonesia', 'Pendidikan Pancasila', 'IPAS', 'PJOK', 'Pendidikan Agama Hindu dan Budi Pekerti', 'Bahasa Bali', 'Seni Suara', 'Bahasa Inggris'],
+        5 => ['Matematika', 'Bahasa Indonesia', 'Pendidikan Pancasila', 'IPAS', 'PJOK', 'Pendidikan Agama Hindu dan Budi Pekerti', 'Bahasa Bali', 'Seni Suara', 'Bahasa Inggris'],
+        6 => ['Matematika', 'Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Bahasa Inggris'],
+    ];
+
     public function run(): void
     {
         echo "▶ MapelKelasGuru ... \n";
+
+        // PHASE 1: Create mapel_kelas rows if they don't exist yet
+        $this->populateMapelKelas();
 
         $waliPerTingkat = [
             1 => ['Ni Wayan Damayanti, S.Pd'],
@@ -106,6 +118,48 @@ class SD3_MapelKelasGuruSeeder extends Seeder
         echo "    - Sudah ada guru  : {$alreadyHasGuru}\n";
         echo "    - Tidak ketemu    : {$unmatched}\n";
         echo "  ✓ MapelKelasGuru selesai.\n";
+    }
+
+    private function populateMapelKelas(): void
+    {
+        $mapelRows = $this->db->table('mata_pelajaran')->get()->getResultArray();
+        $mapelByNama = [];
+        foreach ($mapelRows as $m) {
+            $mapelByNama[$m['nama_mapel']] = (int) $m['id_mapel'];
+        }
+
+        $created = 0;
+        for ($tingkat = 1; $tingkat <= 6; $tingkat++) {
+            $kelas = $this->db->table('kelas')->where('tingkat', $tingkat)->get()->getRow();
+            if (!$kelas) {
+                continue;
+            }
+
+            foreach ($this->mapelPerKelas[$tingkat] ?? [] as $namaMapel) {
+                $mapelId = $mapelByNama[$namaMapel] ?? null;
+                if (!$mapelId) {
+                    continue;
+                }
+
+                $exists = $this->db->table('mapel_kelas')
+                    ->where('id_mapel', $mapelId)
+                    ->where('id_kelas', $kelas->id_kelas)
+                    ->get()->getRow();
+
+                if (!$exists) {
+                    $this->db->table('mapel_kelas')->insert([
+                        'id_mapel'   => $mapelId,
+                        'id_kelas'   => $kelas->id_kelas,
+                        'id_guru'    => null,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ]);
+                    $created++;
+                }
+            }
+        }
+
+        echo "  → $created mapel_kelas rows created\n";
     }
 
     private function pickCandidates(string $kode, int $tingkat, array $wali, array $agama, array $bbaliKhusus): array
