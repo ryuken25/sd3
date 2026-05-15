@@ -59,8 +59,11 @@ class NilaiHarian extends BaseController
             return $response;
         }
 
-        // Get all students in this class
-        $siswa = $siswaModel->where('id_kelas', $id_kelas)->where('status', 'aktif')->findAll();
+        // Get all students in this class for the selected tahun ajaran (multi-TA siswa rows would otherwise leak).
+        $siswa = $siswaModel->where('id_kelas', $id_kelas)
+            ->where('id_tahun_ajaran', $id_tahun_ajaran)
+            ->where('status', 'aktif')
+            ->findAll();
 
         // Get existing grades
         $nilaiExisting = [];
@@ -148,12 +151,14 @@ class NilaiHarian extends BaseController
     public function getSiswa()
     {
         $id_kelas = $this->request->getGet('id_kelas');
-        if (!$id_kelas) {
+        $id_tahun_ajaran = $this->request->getGet('id_tahun_ajaran');
+        if (!$id_kelas || !$id_tahun_ajaran) {
             return $this->response->setJSON([]);
         }
 
         $siswaModel = new SiswaModel();
         $siswa = $siswaModel->where('id_kelas', $id_kelas)
+            ->where('id_tahun_ajaran', $id_tahun_ajaran)
             ->where('status', 'aktif')
             ->orderBy('nama_siswa', 'ASC')
             ->findAll();

@@ -60,8 +60,11 @@ class NilaiAkhir extends BaseController
             return $response;
         }
 
-        // Get all students in the class
-        $siswa = $siswaModel->where('id_kelas', $id_kelas)->where('status', 'aktif')->findAll();
+        // Get all students in the class for the selected tahun ajaran.
+        $siswa = $siswaModel->where('id_kelas', $id_kelas)
+            ->where('id_tahun_ajaran', $id_tahun_ajaran)
+            ->where('status', 'aktif')
+            ->findAll();
 
         if (empty($siswa)) {
             return redirect()->back()->with('error', 'Tidak ada siswa aktif di kelas ini');

@@ -144,10 +144,12 @@
             const siswaSelect = form.querySelector('select[name="id_siswa"]');
             if (!siswaSelect) return;
             const id_kelas = this.value;
+            const taSelect = form.querySelector('select[name="id_tahun_ajaran"]');
+            const id_tahun_ajaran = taSelect ? taSelect.value : '';
             if (!id_kelas) { siswaSelect.innerHTML = '<option value="">-- Pilih Siswa --</option>'; return; }
             // Simple approach: show loading, then make a quick fetch
             siswaSelect.innerHTML = '<option value="">Memuat...</option>';
-            fetch('<?= base_url('guru/nilai-harian/get-siswa') ?>?id_kelas=' + id_kelas)
+            fetch('<?= base_url('guru/nilai-harian/get-siswa') ?>?id_kelas=' + encodeURIComponent(id_kelas) + '&id_tahun_ajaran=' + encodeURIComponent(id_tahun_ajaran))
                 .then(r => r.json())
                 .then(data => {
                     siswaSelect.innerHTML = '<option value="">-- Pilih Siswa --</option>';
@@ -157,6 +159,17 @@
                 }).catch(() => { siswaSelect.innerHTML = '<option value="">-- Pilih Siswa --</option>'; });
         });
         select.dispatchEvent(new Event('change'));
+    });
+
+    // Re-load siswa list when TA changes (By Student mode only — kelas re-dispatches the fetch)
+    document.querySelectorAll('select[name="id_tahun_ajaran"]').forEach(function (taSelect) {
+        taSelect.addEventListener('change', function () {
+            const form = this.closest('form');
+            const kelasSelect = form.querySelector('select[name="id_kelas"]');
+            if (kelasSelect && kelasSelect.value) {
+                kelasSelect.dispatchEvent(new Event('change'));
+            }
+        });
     });
 </script>
 <?= $this->endSection() ?>

@@ -67,8 +67,11 @@ class PenilaianAgregat extends BaseController
             return $response;
         }
 
-        // Get active students in this class
+        // Get active students in this class for the SELECTED tahun ajaran.
+        // Tanpa filter id_tahun_ajaran, siswa lintas-TA dengan kelas yang sama akan bocor
+        // (satu NIS bisa punya banyak baris siswa sejak constraint UNIQUE direlaksasi ke composite (nis, id_tahun_ajaran)).
         $siswa = $siswaModel->where('id_kelas', $id_kelas)
+            ->where('id_tahun_ajaran', $id_tahun_ajaran)
             ->where('status', 'aktif')
             ->orderBy('nama_siswa', 'ASC')
             ->findAll();

@@ -59,7 +59,10 @@ class NilaiUjian extends BaseController
             return $response;
         }
 
-        $siswa = $siswaModel->where('id_kelas', $id_kelas)->where('status', 'aktif')->findAll();
+        $siswa = $siswaModel->where('id_kelas', $id_kelas)
+            ->where('id_tahun_ajaran', $id_tahun_ajaran)
+            ->where('status', 'aktif')
+            ->findAll();
 
         // Fetch existing ujian grades
         $nilaiExisting = [];
