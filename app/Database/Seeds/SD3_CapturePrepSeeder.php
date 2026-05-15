@@ -76,6 +76,7 @@ class SD3_CapturePrepSeeder extends Seeder
         if ($ortu) {
             $targetSiswa = $db->table('siswa')
                 ->where('id_user_ortu', (int) $ortu['id_user'])
+                ->where('id_tahun_ajaran', $idTahunAjaran)
                 ->where('status', 'aktif')
                 ->orderBy('id_siswa', 'ASC')
                 ->get()->getRowArray();
@@ -83,6 +84,7 @@ class SD3_CapturePrepSeeder extends Seeder
 
         if (!$targetSiswa) {
             $targetSiswa = $db->table('siswa')
+                ->where('id_tahun_ajaran', $idTahunAjaran)
                 ->where('status', 'aktif')
                 ->orderBy('id_siswa', 'ASC')
                 ->get()->getRowArray();
