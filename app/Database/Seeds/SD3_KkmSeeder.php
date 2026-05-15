@@ -5,91 +5,87 @@ namespace App\Database\Seeds;
 use CodeIgniter\Database\Seeder;
 
 /**
- * Seed: KKM per kelas x mapel x tahun_ajaran
+ * Seed: KKM per (mapel, kelas, tahun_ajaran) — semua 5 TA.
  *
- * KKM default = 75 untuk semua mapel
- * Hanya dibuat untuk tahun ajaran aktif (2025/2026 Ganjil)
- *
- * Logika mapel per kelas (dari jadwal):
- *   Kelas 1-2: Tematik Terpadu, Agama Hindu, PJOK, Bhs.Bali, Seni Rupa, Bhs.Inggris, Pend.Pancasila
- *   Kelas 3:   Tematik Terpadu, Agama Hindu, PJOK, Bhs.Bali, Seni Rupa, Bhs.Inggris, Pend.Pancasila
- *   Kelas 4-5: Matematika, B.Indonesia, Pend.Pancasila, IPAS, PJOK, Agama Hindu, Bhs.Bali, Seni Suara, Bhs.Inggris
- *   Kelas 6:   Matematika, Tematik Terpadu, Agama Hindu, PJOK, Bhs.Bali, Bhs.Inggris
+ * KKM default = 75. TA 2023/2024 diberi nilai 72 (threshold historis lebih rendah).
+ * Idempotent: skip baris yang sudah ada.
  */
 class SD3_KkmSeeder extends Seeder
 {
+    private array $mapelPerKelas = [
+        1 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
+        2 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
+        3 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
+        4 => ['Matematika', 'Bahasa Indonesia', 'Pendidikan Pancasila', 'IPAS', 'PJOK', 'Pendidikan Agama Hindu dan Budi Pekerti', 'Bahasa Bali', 'Seni Suara', 'Bahasa Inggris'],
+        5 => ['Matematika', 'Bahasa Indonesia', 'Pendidikan Pancasila', 'IPAS', 'PJOK', 'Pendidikan Agama Hindu dan Budi Pekerti', 'Bahasa Bali', 'Seni Suara', 'Bahasa Inggris'],
+        6 => ['Matematika', 'Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Bahasa Inggris'],
+    ];
+
     public function run(): void
     {
         echo "▶ [6/9] KKM ... ";
 
-        // Ambil tahun ajaran aktif
-        $ta = $this->db->table('tahun_ajaran')
-            ->where('aktif', 'aktif')
-            ->get()->getRow();
-
-        if (!$ta) {
-            echo "✗ Tahun ajaran aktif tidak ditemukan!\n";
-            return;
-        }
-
-        $taId = $ta->id_tahun_ajaran;
-
-        // Ambil semua mapel (keyed by nama)
         $mapelRows = $this->db->table('mata_pelajaran')->get()->getResultArray();
         $mapelByNama = [];
         foreach ($mapelRows as $m) {
             $mapelByNama[$m['nama_mapel']] = (int) $m['id_mapel'];
         }
 
-        // Definisi mapel per kelas (sesuai jadwal)
-        $mapelPerKelas = [
-            1 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
-            2 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
-            3 => ['Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Seni Rupa', 'Bahasa Inggris', 'Pendidikan Pancasila'],
-            4 => ['Matematika', 'Bahasa Indonesia', 'Pendidikan Pancasila', 'IPAS', 'PJOK', 'Pendidikan Agama Hindu dan Budi Pekerti', 'Bahasa Bali', 'Seni Suara', 'Bahasa Inggris'],
-            5 => ['Matematika', 'Bahasa Indonesia', 'Pendidikan Pancasila', 'IPAS', 'PJOK', 'Pendidikan Agama Hindu dan Budi Pekerti', 'Bahasa Bali', 'Seni Suara', 'Bahasa Inggris'],
-            6 => ['Matematika', 'Tematik Terpadu', 'Pendidikan Agama Hindu dan Budi Pekerti', 'PJOK', 'Bahasa Bali', 'Bahasa Inggris'],
-        ];
+        $kelasByTingkat = [];
+        for ($t = 1; $t <= 6; $t++) {
+            $k = $this->db->table('kelas')->where('tingkat', $t)->get()->getRow();
+            if ($k) {
+                $kelasByTingkat[$t] = $k;
+            }
+        }
+
+        $allTa = $this->db->table('tahun_ajaran')
+            ->orderBy('id_tahun_ajaran', 'ASC')
+            ->get()->getResultArray();
 
         $inserted = 0;
-        $updated  = 0;
+        $skipped  = 0;
 
-        for ($tingkat = 1; $tingkat <= 6; $tingkat++) {
-            $kelas = $this->db->table('kelas')
-                ->where('tingkat', $tingkat)
-                ->get()->getRow();
+        foreach ($allTa as $ta) {
+            $taId       = (int) $ta['id_tahun_ajaran'];
+            $defaultKkm = (str_contains($ta['tahun_ajaran'], '2023/2024')) ? 72.0 : 75.0;
 
-            if (!$kelas) continue;
+            for ($tingkat = 1; $tingkat <= 6; $tingkat++) {
+                $kelas = $kelasByTingkat[$tingkat] ?? null;
+                if (!$kelas) {
+                    continue;
+                }
 
-            $kelasId = $kelas->id_kelas;
-            $mapelList = $mapelPerKelas[$tingkat] ?? [];
+                foreach ($this->mapelPerKelas[$tingkat] ?? [] as $namaMapel) {
+                    $mapelId = $mapelByNama[$namaMapel] ?? null;
+                    if (!$mapelId) {
+                        continue;
+                    }
 
-            foreach ($mapelList as $namaMapel) {
-                $mapelId = $mapelByNama[$namaMapel] ?? null;
-                if (!$mapelId) continue;
+                    $existing = $this->db->table('kkm')
+                        ->where('id_mapel', $mapelId)
+                        ->where('id_kelas', $kelas->id_kelas)
+                        ->where('id_tahun_ajaran', $taId)
+                        ->get()->getRow();
 
-                $existing = $this->db->table('kkm')
-                    ->where('id_mapel', $mapelId)
-                    ->where('id_kelas', $kelasId)
-                    ->where('id_tahun_ajaran', $taId)
-                    ->get()->getRow();
+                    if ($existing) {
+                        $skipped++;
+                        continue;
+                    }
 
-                if (!$existing) {
                     $this->db->table('kkm')->insert([
                         'id_mapel'        => $mapelId,
-                        'id_kelas'        => $kelasId,
+                        'id_kelas'        => $kelas->id_kelas,
                         'id_tahun_ajaran' => $taId,
-                        'nilai_kkm'       => 75.00,
+                        'nilai_kkm'       => $defaultKkm,
                         'created_at'      => date('Y-m-d H:i:s'),
                         'updated_at'      => date('Y-m-d H:i:s'),
                     ]);
                     $inserted++;
-                } else {
-                    $updated++;
                 }
             }
         }
 
-        echo "✓ ($inserted inserted, $updated already exists)\n";
+        echo "✓ ($inserted inserted, $skipped skipped)\n";
     }
 }

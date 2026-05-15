@@ -18,9 +18,9 @@ use CodeIgniter\Database\Seeder;
  * TOTAL: 73 siswa
  * ─────────────────────────────────────────────────────────────────────────────
  *
- * Format NISN / NIS dari file: "3188335541 / 937"
- * Parsing: nisn = bagian sebelum " / ", nis = bagian sesudah " / "
- * Jika NIS kosong: set NULL
+ * Multi-TA: siswa di-seed ke semua TA dengan history naik kelas.
+ * Siswa kelas N di 2025/2026 → kelas N-1 di 2024/2025 → kelas N-2 di 2023/2024.
+ * Siswa kelas 1 hanya ada di TA aktif (belum SD di TA sebelumnya).
  */
 class SD3_SiswaSeeder extends Seeder
 {
@@ -127,120 +127,143 @@ class SD3_SiswaSeeder extends Seeder
         ];
     }
 
+    private function getYearStart(string $tahunAjaran): int
+    {
+        $parts = explode('/', trim($tahunAjaran));
+        return (int) ($parts[0] ?? 0);
+    }
+
     public function run(): void
     {
-        echo "▶ [5/9] Siswa ... ";
+        echo "▶ [5/9] Siswa (multi-TA + naik kelas) ... \n";
 
-        // Ambil TA aktif agar semua siswa ter-assign ke periode yang benar
-        $taAktif = $this->db->table('tahun_ajaran')
-            ->where('aktif', 'aktif')
-            ->orderBy('id_tahun_ajaran', 'DESC')
-            ->get()->getRow();
+        $taList = $this->db->table('tahun_ajaran')
+            ->orderBy('tanggal_mulai', 'ASC')
+            ->get()->getResultArray();
 
-        if (!$taAktif) {
-            echo "\n   ✗ Tidak ada Tahun Ajaran aktif. Jalankan SD3_TahunAjaranSeeder dulu.\n";
+        if (empty($taList)) {
+            echo "   ✗ Tidak ada Tahun Ajaran. Jalankan SD3_TahunAjaranSeeder dulu.\n";
             return;
         }
-        $idTaAktif = (int) $taAktif->id_tahun_ajaran;
+
+        $taAktif = null;
+        foreach ($taList as $ta) {
+            if ($ta['aktif'] === 'aktif') {
+                $taAktif = $ta;
+                break;
+            }
+        }
+
+        if (!$taAktif) {
+            echo "   ✗ Tidak ada TA dengan aktif='aktif'.\n";
+            return;
+        }
+
+        $currentYear = $this->getYearStart($taAktif['tahun_ajaran']);
+
+        // Map tingkat → id_kelas
+        $kelasRows = $this->db->table('kelas')->orderBy('tingkat', 'ASC')->get()->getResultArray();
+        $kelasIdByTingkat = [];
+        foreach ($kelasRows as $k) {
+            $kelasIdByTingkat[(int) $k['tingkat']] = (int) $k['id_kelas'];
+        }
 
         $siswaPerKelas = $this->getSiswaPerKelas();
-        $inserted = 0;
-        $updated  = 0;
-        $counter  = [];
+        $totalInserted = 0;
+        $totalUpdated  = 0;
 
-        foreach ($siswaPerKelas as $tingkat => $siswaList) {
-            // Cari id_kelas
-            $kelas = $this->db->table('kelas')
-                ->where('tingkat', $tingkat)
-                ->get()->getRow();
+        foreach ($taList as $ta) {
+            $taId      = (int) $ta['id_tahun_ajaran'];
+            $taLabel   = $ta['tahun_ajaran'] . ' ' . $ta['semester'];
+            $yearStart = $this->getYearStart($ta['tahun_ajaran']);
+            $yearDiff  = $currentYear - $yearStart;
 
-            if (!$kelas) {
-                echo "\n   ⚠ Kelas $tingkat tidak ditemukan, skip!\n";
-                continue;
-            }
+            $insertedThisTa = 0;
+            $updatedThisTa  = 0;
 
-            $kelasId = $kelas->id_kelas;
-            $counter[$tingkat] = 0;
+            foreach ($siswaPerKelas as $currentTingkat => $siswaList) {
+                $tingkatAtThisTa = (int) $currentTingkat - $yearDiff;
 
-            foreach ($siswaList as $s) {
-                $nisn = $s['nisn'];
-                $nis = $s['nis']; // bisa null
-                $nama = $s['nama'];
-                $jk = $s['jk'];
-
-                // Gunakan NIS sebagai primary key pencarian jika ada, fallback ke NISN
-                $existing = null;
-
-                if ($nisn) {
-                    $existing = $this->db->table('siswa')
-                        ->where('nisn', $nisn)
-                        ->get()->getRow();
+                // Siswa belum SD di TA ini — skip cohort
+                if ($tingkatAtThisTa < 1) {
+                    continue;
                 }
 
-                if (!$existing && $nis) {
+                $kelasId = $kelasIdByTingkat[$tingkatAtThisTa] ?? null;
+                if (!$kelasId) {
+                    echo "   ⚠ Kelas tingkat {$tingkatAtThisTa} tidak ditemukan.\n";
+                    continue;
+                }
+
+                foreach ($siswaList as $idx => $s) {
+                    $nisn = (string) ($s['nisn'] ?? '');
+                    $nis  = (string) ($s['nis'] ?? '');
+                    $nama = $s['nama'];
+                    $jk   = $s['jk'];
+
+                    if ($nis === '') {
+                        $nis = 'SIS' . str_pad((string) $currentTingkat, 1, '0', STR_PAD_LEFT)
+                             . str_pad((string) ($idx + 1), 3, '0', STR_PAD_LEFT);
+                    }
+
+                    // User ortu: 1 per NIS, reused lintas TA
+                    $ortuUsername = 'ortu_' . $nis;
+                    $existingOrtu = $this->db->table('users')
+                        ->where('username', $ortuUsername)
+                        ->get()->getRow();
+
+                    if (!$existingOrtu) {
+                        $this->db->table('users')->insert([
+                            'username'     => $ortuUsername,
+                            'password'     => password_hash((string) $nis, PASSWORD_DEFAULT),
+                            'nama_lengkap' => 'Wali ' . $nama,
+                            'level'        => 'orang_tua',
+                            'status'       => 'aktif',
+                            'created_at'   => date('Y-m-d H:i:s'),
+                            'updated_at'   => date('Y-m-d H:i:s'),
+                        ]);
+                        $idUserOrtu = (int) $this->db->insertID();
+                    } else {
+                        $idUserOrtu = (int) $existingOrtu->id_user;
+                    }
+
+                    // Upsert siswa per (nis, id_tahun_ajaran)
                     $existing = $this->db->table('siswa')
                         ->where('nis', $nis)
+                        ->where('id_tahun_ajaran', $taId)
                         ->get()->getRow();
+
+                    $record = [
+                        'nisn'            => $nisn ?: null,
+                        'nis'             => $nis,
+                        'nama_siswa'      => $nama,
+                        'jenis_kelamin'   => $jk,
+                        'id_kelas'        => $kelasId,
+                        'id_tahun_ajaran' => $taId,
+                        'id_user_ortu'    => $idUserOrtu,
+                        'password'        => password_hash((string) $nis, PASSWORD_DEFAULT),
+                        'status'          => 'aktif',
+                        'updated_at'      => date('Y-m-d H:i:s'),
+                    ];
+
+                    if (!$existing) {
+                        $record['created_at'] = date('Y-m-d H:i:s');
+                        $this->db->table('siswa')->insert($record);
+                        $insertedThisTa++;
+                    } else {
+                        $this->db->table('siswa')
+                            ->where('id_siswa', $existing->id_siswa)
+                            ->update($record);
+                        $updatedThisTa++;
+                    }
                 }
-
-                $record = [
-                    'nisn'            => $nisn ?: null,
-                    'nis'             => $nis ?: ('SIS' . str_pad($tingkat, 1) . str_pad($inserted + $updated + 1, 3, '0', STR_PAD_LEFT)),
-                    'nama_siswa'      => $nama,
-                    'jenis_kelamin'   => $jk,
-                    'id_kelas'        => $kelasId,
-                    'id_tahun_ajaran' => $idTaAktif,
-                    'password'        => password_hash((string) ($nis ?: $nisn ?: '12345'), PASSWORD_DEFAULT),
-                    'status'          => 'aktif',
-                    'updated_at'      => date('Y-m-d H:i:s'),
-                ];
-
-                $ortuUsername = 'ortu_' . $record['nis'];
-                $existingOrtu = $this->db->table('users')
-                    ->where('username', $ortuUsername)
-                    ->get()->getRow();
-
-                if (!$existingOrtu) {
-                    $this->db->table('users')->insert([
-                        'username' => $ortuUsername,
-                        'password' => password_hash((string) $record['nis'], PASSWORD_DEFAULT),
-                        'nama_lengkap' => 'Orang Tua ' . $nama,
-                        'no_telp' => null,
-                        'level' => 'orang_tua',
-                        'status' => 'aktif',
-                        'created_at' => date('Y-m-d H:i:s'),
-                        'updated_at' => date('Y-m-d H:i:s'),
-                    ]);
-                    $ortuId = (int) $this->db->insertID();
-                } else {
-                    $ortuId = (int) $existingOrtu->id_user;
-                }
-
-                $record['id_user_ortu'] = $ortuId;
-
-                if (!$existing) {
-                    $record['created_at'] = date('Y-m-d H:i:s');
-                    $this->db->table('siswa')->insert($record);
-                    $inserted++;
-                } else {
-                    $this->db->table('siswa')
-                        ->where('id_siswa', $existing->id_siswa)
-                        ->update($record);
-                    $updated++;
-                }
-
-                $counter[$tingkat]++;
             }
+
+            echo "   • {$taLabel} (yearDiff={$yearDiff}): {$insertedThisTa} inserted, {$updatedThisTa} updated\n";
+            $totalInserted += $insertedThisTa;
+            $totalUpdated  += $updatedThisTa;
         }
 
-        echo "✓ ($inserted inserted, $updated updated)\n";
-
-        // Validasi jumlah per kelas
-        $expected = [1 => 12, 2 => 13, 3 => 13, 4 => 17, 5 => 10, 6 => 8];
-        foreach ($expected as $k => $exp) {
-            $actual = $counter[$k] ?? 0;
-            $status = ($actual === $exp) ? '✓' : '✗';
-            echo "   Kelas $k: $actual/$exp siswa $status\n";
-        }
+        echo "   ✓ Total: {$totalInserted} inserted, {$totalUpdated} updated lintas " . count($taList) . " TA\n";
     }
 }
