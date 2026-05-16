@@ -20,10 +20,12 @@ class Dashboard extends BaseController
         $siswaModel = new SiswaModel();
         $tahunAjaranModel = new TahunAjaranModel();
 
-        $siswaData = $siswaModel->findByParentUser((int) $id_user);
-
-        // Get active academic year
+        // Resolve TA aktif lebih dulu supaya list siswa dipersempit ke TA itu —
+        // tanpa filter, satu anak yang ada di banyak TA akan muncul sebagai banyak card.
         $tahunAjaranAktif = $tahunAjaranModel->where('aktif', 'aktif')->first();
+        $idTaAktif = $tahunAjaranAktif ? (int) $tahunAjaranAktif['id_tahun_ajaran'] : null;
+
+        $siswaData = $siswaModel->findByParentUser((int) $id_user, $idTaAktif);
 
         $nilaiAkhirModel = new NilaiAkhirModel();
         $raporModel = new RaporModel();

@@ -29,12 +29,40 @@ class SiswaModel extends Model
     protected $createdField = 'created_at';
     protected $updatedField = 'updated_at';
 
-    public function findByParentUser(int $idUser): array
+    /**
+     * Ambil baris siswa milik akun orang tua tertentu.
+     *
+     * Karena siswa disimpan satu baris per Tahun Ajaran (composite UNIQUE
+     * (nis, id_tahun_ajaran)), method ini wajib menerima id TA aktif —
+     * tanpa filter, satu anak yang ada di banyak TA akan muncul sebagai
+     * banyak baris di dashboard orang tua.
+     *
+     * Bila $idTahunAjaran null (mis. tidak ada TA aktif), fallback ke
+     * dedup-per-NIS: ambil baris TA terbaru untuk tiap NIS — supaya UI
+     * tetap menampilkan satu card per anak unik.
+     */
+    public function findByParentUser(int $idUser, ?int $idTahunAjaran = null): array
     {
-        return $this->where('id_user_ortu', $idUser)
+        if ($idTahunAjaran !== null) {
+            return $this->where('id_user_ortu', $idUser)
+                ->where('status', 'aktif')
+                ->where('id_tahun_ajaran', $idTahunAjaran)
+                ->orderBy('nama_siswa', 'ASC')
+                ->findAll();
+        }
+
+        $all = $this->where('id_user_ortu', $idUser)
             ->where('status', 'aktif')
-            ->orderBy('nama_siswa', 'ASC')
+            ->orderBy('id_tahun_ajaran', 'DESC')
             ->findAll();
+
+        $byNis = [];
+        foreach ($all as $row) {
+            $byNis[$row['nis']] = $byNis[$row['nis']] ?? $row;
+        }
+        $result = array_values($byNis);
+        usort($result, static fn($a, $b) => strcmp((string) $a['nama_siswa'], (string) $b['nama_siswa']));
+        return $result;
     }
 
     public function isOwnedByParent(int $idSiswa, int $idUser): bool
