@@ -17,8 +17,18 @@ class Kkm extends BaseController
         $kelasModel = new KelasModel();
         $taModel = new TahunAjaranModel();
         $filterKelas = (int) ($this->request->getGet('id_kelas') ?? 0);
+        $filterTa    = (int) ($this->request->getGet('id_tahun_ajaran') ?? 0);
 
-        $kkmBuilder = $kkmModel->select('kkm.*, mata_pelajaran.nama_mapel, mata_pelajaran.kode_mapel, kelas.nama_kelas, kelas.tingkat, tahun_ajaran.tahun_ajaran, tahun_ajaran.semester')
+        // Default: pakai TA aktif kalau filter TA tidak di-set,
+        // supaya halaman tidak ramai dengan KKM lintas TA.
+        if ($filterTa === 0) {
+            $taAktif = $taModel->where('aktif', 'aktif')
+                               ->orderBy('id_tahun_ajaran', 'DESC')
+                               ->first();
+            $filterTa = $taAktif ? (int) $taAktif['id_tahun_ajaran'] : 0;
+        }
+
+        $kkmBuilder = $kkmModel->select('kkm.*, mata_pelajaran.nama_mapel, mata_pelajaran.kode_mapel, kelas.nama_kelas, kelas.tingkat, tahun_ajaran.tahun_ajaran, tahun_ajaran.semester, tahun_ajaran.aktif')
                             ->join('mata_pelajaran', 'mata_pelajaran.id_mapel = kkm.id_mapel')
                             ->join('kelas', 'kelas.id_kelas = kkm.id_kelas')
                             ->join('tahun_ajaran', 'tahun_ajaran.id_tahun_ajaran = kkm.id_tahun_ajaran', 'left')
@@ -28,6 +38,9 @@ class Kkm extends BaseController
 
         if ($filterKelas > 0) {
             $kkmBuilder->where('kkm.id_kelas', $filterKelas);
+        }
+        if ($filterTa > 0) {
+            $kkmBuilder->where('kkm.id_tahun_ajaran', $filterTa);
         }
 
         $kkmList = $kkmBuilder->findAll();
@@ -39,6 +52,7 @@ class Kkm extends BaseController
             'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
             'ta'    => $taModel->orderBy('id_tahun_ajaran', 'DESC')->findAll(),
             'filter_kelas' => $filterKelas,
+            'filter_ta'    => $filterTa,
         ];
         return view('admin/kkm/index', $data);
     }

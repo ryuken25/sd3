@@ -28,10 +28,22 @@
 </div>
 
 <div class="card border-0 shadow-sm rounded-3 mb-4">
-    <div class="card-header bg-white fw-bold"><i class="bi bi-funnel me-2"></i>Filter Kelas</div>
+    <div class="card-header bg-white fw-bold"><i class="bi bi-funnel me-2"></i>Filter</div>
     <div class="card-body">
         <form method="get" action="<?= base_url('admin/kkm') ?>" class="row g-3 align-items-end">
-            <div class="col-md-8">
+            <div class="col-md-5">
+                <label class="form-label">Tahun Ajaran</label>
+                <select name="id_tahun_ajaran" class="form-select">
+                    <?php foreach ($ta as $t_item): ?>
+                        <?php $isAktif = ($t_item['aktif'] ?? '') === 'aktif'; ?>
+                        <option value="<?= $t_item['id_tahun_ajaran'] ?>" <?= (int) ($filter_ta ?? 0) === (int) $t_item['id_tahun_ajaran'] ? 'selected' : '' ?>>
+                            <?= esc($t_item['tahun_ajaran']) ?> — Semester <?= esc($t_item['semester']) ?><?= $isAktif ? ' [AKTIF]' : '' ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="form-text">Default tampil TA yang sedang <strong>aktif</strong>. Pilih TA lain untuk melihat KKM lama.</div>
+            </div>
+            <div class="col-md-4">
                 <label class="form-label">Kelas</label>
                 <select name="id_kelas" class="form-select">
                     <option value="">Semua Kelas</option>
@@ -41,9 +53,8 @@
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <div class="form-text">Mapel KKM harus sesuai kelas yang dipilih agar tidak lintas kelas.</div>
             </div>
-            <div class="col-md-4 d-flex gap-2">
+            <div class="col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary flex-fill"><i class="bi bi-search me-1"></i>Tampilkan</button>
                 <a href="<?= base_url('admin/kkm') ?>" class="btn btn-outline-secondary">Reset</a>
             </div>

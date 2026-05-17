@@ -196,7 +196,9 @@ class NilaiAkhir extends BaseController
             'id_tahun_ajaran' => $id_tahun_ajaran
         ])->first();
 
-        // Get all students with their final grades
+        // Get all students with their final grades for the selected TA only.
+        // Tanpa filter siswa.id_tahun_ajaran, baris siswa lintas-TA dengan id_kelas yang sama
+        // akan ikut muncul (siswa disimpan per (siswa × tahun_ajaran)).
         // FIX BUG-02: Move id_mapel and id_tahun_ajaran to ON clause for proper LEFT JOIN
         $siswa = $siswaModel->select('siswa.*, nilai_akhir.*, remedial.*')
             ->join(
@@ -208,6 +210,7 @@ class NilaiAkhir extends BaseController
             )
             ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
             ->where('siswa.id_kelas', $id_kelas)
+            ->where('siswa.id_tahun_ajaran', $id_tahun_ajaran)
             ->where('siswa.status', 'aktif')
             ->findAll();
 
@@ -272,6 +275,7 @@ class NilaiAkhir extends BaseController
             ->join('nilai_akhir', 'nilai_akhir.id_siswa = siswa.id_siswa')
             ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
             ->where('siswa.id_kelas', $id_kelas)
+            ->where('siswa.id_tahun_ajaran', $id_tahun_ajaran)
             ->where('siswa.status', 'aktif')
             ->where('nilai_akhir.id_mapel', $id_mapel)
             ->where('nilai_akhir.id_tahun_ajaran', $id_tahun_ajaran)
