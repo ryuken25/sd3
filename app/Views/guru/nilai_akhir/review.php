@@ -195,6 +195,49 @@ foreach ($siswa as $s) {
     </div>
 <?php endif; ?>
 
+<?php
+$borderlineList = array_filter($siswa ?? [], static fn($s) => (int) ($s['flag_borderline_75'] ?? 0) === 1);
+?>
+<?php if (!empty($borderlineList)): ?>
+    <div class="card border-0 shadow-sm rounded-3 mt-4" style="border-left: 4px solid #f0ad4e !important;">
+        <div class="card-body p-4">
+            <h5 class="fw-bold mb-3 text-warning">
+                <i class="bi bi-sticky me-2"></i>Catatan untuk Siswa dengan Nilai Akhir 75 (Borderline)
+            </h5>
+            <p class="text-muted small mb-4">
+                Nilai akhir <strong>tepat 75</strong> umumnya hasil katrol pasca-remedial. Wajib diisi catatan
+                (minimal 10 karakter) menjelaskan tindak lanjut atau konteks nilai borderline ini. Catatan ini
+                <strong>tidak tampil</strong> di rapor cetak, hanya di dashboard orang tua sebagai "Catatan dari guru".
+            </p>
+
+            <form action="<?= base_url('guru/nilai-akhir/save-catatan-borderline') ?>" method="post">
+                <?= csrf_field() ?>
+                <input type="hidden" name="id_tahun_ajaran" value="<?= esc($id_tahun_ajaran) ?>">
+                <input type="hidden" name="id_kelas" value="<?= esc($id_kelas) ?>">
+                <input type="hidden" name="id_mapel" value="<?= esc($id_mapel) ?>">
+
+                <?php foreach ($borderlineList as $b): ?>
+                    <div class="mb-3 p-3 border rounded bg-light">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-person-fill me-1"></i> <?= esc($b['nama_siswa']) ?>
+                            <span class="badge bg-warning text-dark ms-2">Nilai: 75</span>
+                        </label>
+                        <textarea name="catatan[<?= (int) $b['id_nilai_akhir'] ?>]" rows="2"
+                            class="form-control"
+                            placeholder="Mis. Siswa berhasil setelah remedial Bab 3; perlu pendampingan operasi hitung bilangan cacah."
+                            minlength="10" required><?= esc($b['catatan_remedial'] ?? '') ?></textarea>
+                        <small class="text-muted">Minimal 10 karakter. Catatan hanya tampil online untuk orang tua.</small>
+                    </div>
+                <?php endforeach; ?>
+
+                <button type="submit" class="btn btn-warning fw-semibold">
+                    <i class="bi bi-save me-1"></i> Simpan Catatan Borderline
+                </button>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>
+
 <div class="alert alert-secondary mt-4">
     <i class="bi bi-info-circle me-2"></i>
     <strong>Catatan:</strong> Tindak lanjut remedial wajib diisi untuk semua siswa remedial sebelum rapor dapat

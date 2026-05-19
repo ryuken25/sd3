@@ -3,295 +3,379 @@
 namespace App\Controllers\OrangTua;
 
 use App\Controllers\BaseController;
-use App\Models\SiswaModel;
-use App\Models\RaporModel;
-use App\Models\NilaiAkhirModel;
+use App\Libraries\RaporNarrativeService;
 use App\Models\KelasModel;
+use App\Models\KokurikulerTemaModel;
+use App\Models\NilaiAkhirModel;
+use App\Models\NilaiCapaianKompetensiModel;
+use App\Models\RaporModel;
+use App\Models\SiswaEkstrakurikulerModel;
+use App\Models\SiswaKokurikulerDimensiModel;
+use App\Models\SiswaModel;
 use App\Models\TahunAjaranModel;
 use TCPDF;
 
+/**
+ * PDF rapor generator — match Rapor_Kelas3.pdf / Rapor_Kelas6.pdf reference.
+ *
+ * Layout 3 halaman:
+ *   Hal 1: header siswa + tabel Mata Pelajaran Wajib
+ *   Hal 2: tabel Mata Pelajaran Pilihan + Kokurikuler narasi + Ekstrakurikuler
+ *          + Ketidakhadiran + Catatan Wali Kelas + Tanggapan Orang Tua
+ *   Hal 3: Tanda tangan (Orang Tua / Kepala Sekolah / Wali Kelas) dengan NIP
+ *
+ * CATATAN: catatan_remedial dari nilai_akhir TIDAK ditampilkan di PDF.
+ */
 class Rapor extends BaseController
 {
-    /**
-     * Generate and download PDF e-rapor
-     */
-    public function downloadPDF($id_siswa, $id_tahun_ajaran)
+    // Konstanta identitas sekolah (Pek 1.1) - dipakai sebagai konstanta PDF
+    private const KEPSEK_NAMA = 'Ni Wayan Kasrinayanti, S. Pd.';
+    private const KEPSEK_NIP  = '198408132014062008';
+    private const SEKOLAH     = 'SD NEGERI 3 MEKARSARI';
+
+    // Mapping NIP guru per username (sumber: SD3_GuruSeeder)
+    private const NIP_GURU = [
+        'kasrinayanti'  => '198408132014062008',
+        'nengahsarini'  => '196803301994032007',
+        'bayukarsana'   => '198911082022211011',
+        'raipitriani'   => '197710202021212001',
+        'suarjana'      => '197407072023211004',
+        'ariwidnya'     => '198508112022211007',
+        'damayanti'     => '199008152022212006',
+        'madhavi'       => '199308222024212027',
+        'siskadewi'     => '',
+        'desiwulandari' => '199312022025212013',
+    ];
+
+    public function downloadPDF($idSiswa, $idTahunAjaran)
     {
+        $idSiswa = (int) $idSiswa;
+        $idTa    = (int) $idTahunAjaran;
+
         $session = session();
-        $id_user = $session->get('id_user');
+        $idUser  = (int) $session->get('id_user');
 
         $siswaModel = new SiswaModel();
-        $access = $siswaModel->isOwnedByParent((int) $id_siswa, (int) $id_user);
-
-        if (!$access) {
-            return redirect()->to(base_url('orangtua/dashboard'))->with('error', 'Akses ditolak');
+        if (!$siswaModel->isOwnedByParent($idSiswa, $idUser)) {
+            return redirect()->to(base_url('orangtua/dashboard'))->with('error', 'Akses ditolak.');
         }
 
-        $raporModel = new RaporModel();
-        $nilaiAkhirModel = new NilaiAkhirModel();
-        $tahunAjaranModel = new TahunAjaranModel();
-
-        $siswa = $siswaModel->select('siswa.*, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.id_kelas')
-            ->where('siswa.id_siswa', $id_siswa)
-            ->first();
-
-        $tahunAjaran = $tahunAjaranModel->find($id_tahun_ajaran);
-
-        if (!$tahunAjaran || $tahunAjaran['status_pengisian'] !== 'Kunci') {
-            return redirect()->back()->with('error', 'Rapor belum tersedia. Semester masih dalam proses pengisian.');
+        $data = $this->loadRaporData($idSiswa, $idTa);
+        if (isset($data['error'])) {
+            return redirect()->back()->with('error', $data['error']);
         }
 
-        // Get rapor data
-        $rapor = $raporModel->getFinalizedReport((int) $id_siswa, (int) $id_tahun_ajaran);
-
-        if (!$rapor) {
-            return redirect()->back()->with('error', 'Rapor belum difinalisasi oleh admin/wali kelas.');
-        }
-
-        // Get all final grades grouped by kelompok
-        $builder = $nilaiAkhirModel->select('nilai_akhir.*, mata_pelajaran.nama_mapel, mata_pelajaran.kelompok, kkm.nilai_kkm')
-            ->join('mata_pelajaran', 'mata_pelajaran.id_mapel = nilai_akhir.id_mapel')
-            ->join('mapel_kelas', 'mapel_kelas.id_mapel = nilai_akhir.id_mapel AND mapel_kelas.id_kelas = ' . (int) $siswa['id_kelas'])
-            ->join('kkm', 'kkm.id_mapel = nilai_akhir.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . (int) $id_tahun_ajaran, 'left')
-            ->where('nilai_akhir.id_siswa', $id_siswa)
-            ->where('nilai_akhir.id_tahun_ajaran', $id_tahun_ajaran);
-
-        $nilaiAkhir = $builder->orderBy('mata_pelajaran.kelompok', 'ASC')
-            ->orderBy('mata_pelajaran.nama_mapel', 'ASC')
-            ->findAll();
-
-        // Separate by kelompok
-        $kelompokA = [];
-        $kelompokB = [];
-        foreach ($nilaiAkhir as $nilai) {
-            if ($nilai['kelompok'] === 'A') {
-                $kelompokA[] = $nilai;
-            } else {
-                $kelompokB[] = $nilai;
-            }
-        }
-
-        // Create PDF
         $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
-
-        // Set document information
         $pdf->SetCreator('SDN 3 Mekarsari');
         $pdf->SetAuthor('SDN 3 Mekarsari');
-        $pdf->SetTitle('Rapor - ' . $siswa['nama_siswa']);
-        $pdf->SetSubject('E-Rapor Siswa');
-
-        // Remove header/footer
+        $pdf->SetTitle('Rapor - ' . $data['siswa']['nama_siswa']);
         $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-
-        // Set margins
+        $pdf->setPrintFooter(true);
+        $pdf->setFooterFont(['courier', 'I', 8]);
+        $pdf->setFooterData([0, 0, 0], [255, 255, 255]);
+        $pdf->setFooterMargin(10);
+        // Custom footer: "Kelas X | NAMA | NIS    Halaman : N"
+        $footer = sprintf('Kelas %s | %s | %s', $data['kelas']['nama_kelas'] ?? '-',
+            $data['siswa']['nama_siswa'] ?? '-', $data['siswa']['nis'] ?? '-');
+        $pdf->setPageMark();
         $pdf->SetMargins(15, 15, 15);
-        $pdf->SetAutoPageBreak(TRUE, 15);
+        $pdf->SetAutoPageBreak(true, 18);
 
-        // Add a page
+        // Halaman 1: header + mapel wajib
         $pdf->AddPage();
-
-        // Set font
         $pdf->SetFont('helvetica', '', 10);
+        $pdf->writeHTML($this->renderHeader($data), true, false, true, false, '');
+        $pdf->writeHTML('<h3 style="text-align:center;margin:6px 0;">LAPORAN HASIL BELAJAR</h3>', true, false, true, false, '');
+        $pdf->writeHTML($this->renderTabelMapel($data, 'wajib'), true, false, true, false, '');
 
-        // Build HTML content
-        $html = $this->generateRaporHTML($siswa, $tahunAjaran, $rapor, $kelompokA, $kelompokB);
+        // Halaman 2: mapel pilihan + kokurikuler + ekskul + ketidakhadiran + catatan
+        $pdf->AddPage();
+        $pdf->writeHTML($this->renderHeader($data), true, false, true, false, '');
+        $pdf->writeHTML($this->renderTabelMapel($data, 'pilihan'), true, false, true, false, '');
+        $pdf->writeHTML($this->renderKokurikuler($data), true, false, true, false, '');
+        $pdf->writeHTML($this->renderEkstrakurikuler($data), true, false, true, false, '');
+        $pdf->writeHTML($this->renderKetidakhadiranCatatan($data), true, false, true, false, '');
+        $pdf->writeHTML($this->renderTanggapan(), true, false, true, false, '');
 
-        // Print text using writeHTMLCell()
-        $pdf->writeHTML($html, true, false, true, false, '');
+        // Halaman 3: tanda tangan
+        $pdf->AddPage();
+        $pdf->writeHTML($this->renderHeader($data, true), true, false, true, false, '');
+        $pdf->writeHTML($this->renderTandaTangan($data), true, false, true, false, '');
 
-        // Close and output PDF
-        $filename = 'Rapor_' . $siswa['nama_siswa'] . '_' . $tahunAjaran['tahun_ajaran'] . '_' . $tahunAjaran['semester'] . '.pdf';
-        $pdf->Output($filename, 'D'); // D = Download
+        $filename = sprintf('Rapor_%s_%s_%s.pdf',
+            preg_replace('/[^A-Za-z0-9]+/', '_', $data['siswa']['nama_siswa']),
+            $data['tahun_ajaran']['tahun_ajaran'],
+            $data['tahun_ajaran']['semester']);
+        $pdf->Output(str_replace('/', '_', $filename), 'D');
     }
 
-    /**
-     * Generate HTML content for rapor
-     */
-    private function generateRaporHTML($siswa, $tahunAjaran, $rapor, $kelompokA, $kelompokB)
+    // ─── Data loader ──────────────────────────────────────────────────────────
+
+    private function loadRaporData(int $idSiswa, int $idTa): array
     {
-        $renderRows = static function (array $rows): string {
-            if (empty($rows)) {
-                return '<tr><td colspan="6" class="empty-state">Belum ada data nilai untuk kelompok ini.</td></tr>';
-            }
+        $siswaModel = new SiswaModel();
+        $kelasModel = new KelasModel();
+        $taModel = new TahunAjaranModel();
+        $raporModel = new RaporModel();
+        $nilaiAkhirModel = new NilaiAkhirModel();
+        $nilaiCpModel = new NilaiCapaianKompetensiModel();
+        $temaModel = new KokurikulerTemaModel();
+        $siswaEkskulModel = new SiswaEkstrakurikulerModel();
+        $siswaKokoModel = new SiswaKokurikulerDimensiModel();
 
-            $html = '';
-            $no = 1;
-            foreach ($rows as $nilai) {
-                $statusColor = ($nilai['status_kelulusan'] ?? '') === 'Tuntas' ? '#137b4a' : '#b44133';
-                $kkm = isset($nilai['nilai_kkm']) && $nilai['nilai_kkm'] !== null ? number_format((float) $nilai['nilai_kkm'], 0) : '-';
-                $nilaiAkhir = isset($nilai['nilai_akhir']) ? number_format((float) $nilai['nilai_akhir'], 2) : '-';
-                $html .= '<tr>
-                    <td class="text-center">' . $no++ . '</td>
-                    <td>' . esc((string) ($nilai['nama_mapel'] ?? '-')) . '</td>
-                    <td class="text-center">' . $kkm . '</td>
-                    <td class="text-center"><strong>' . $nilaiAkhir . '</strong></td>
-                    <td class="text-center"><strong>' . esc((string) ($nilai['nilai_huruf'] ?? '-')) . '</strong></td>
-                    <td class="text-center" style="color:' . $statusColor . '; font-weight:bold;">' . esc((string) ($nilai['status_kelulusan'] ?? '-')) . '</td>
-                </tr>';
-            }
+        $siswa = $siswaModel->find($idSiswa);
+        if (!$siswa) return ['error' => 'Data siswa tidak ditemukan.'];
 
-            return $html;
+        $kelas = $kelasModel->find($siswa['id_kelas']);
+        $ta    = $taModel->find($idTa);
+        if (!$ta) return ['error' => 'Data tahun ajaran tidak ditemukan.'];
+
+        $rapor = $raporModel->where('id_siswa', $idSiswa)
+            ->where('id_tahun_ajaran', $idTa)
+            ->first();
+
+        // Wali kelas
+        $waliKelas = null;
+        if ($kelas && !empty($kelas['wali_kelas'])) {
+            $waliKelas = \Config\Database::connect()->table('users')
+                ->where('id_user', $kelas['wali_kelas'])->get()->getRowArray();
+        }
+
+        // Mapel + nilai_akhir + CP narasi
+        $nilaiRows = $nilaiAkhirModel->select('nilai_akhir.*, mata_pelajaran.nama_mapel, mata_pelajaran.kode_mapel')
+            ->join('mata_pelajaran', 'mata_pelajaran.id_mapel = nilai_akhir.id_mapel')
+            ->where('nilai_akhir.id_siswa', $idSiswa)
+            ->where('nilai_akhir.id_tahun_ajaran', $idTa)
+            ->orderBy('mata_pelajaran.id_mapel', 'ASC')
+            ->findAll();
+
+        $narrative = new RaporNarrativeService();
+        $mapelData = ['wajib' => [], 'pilihan' => []];
+        foreach ($nilaiRows as $row) {
+            $cpList = $nilaiCpModel->listWithDeskripsi((int) $row['id_nilai_akhir']);
+            $row['capaian_narasi'] = $narrative->generateNarasiCP($cpList);
+            // Bahasa Bali (kode BBALI) = pilihan; sisanya = wajib
+            $isPilihan = strtoupper((string) ($row['kode_mapel'] ?? '')) === 'BBALI';
+            $mapelData[$isPilihan ? 'pilihan' : 'wajib'][] = $row;
+        }
+
+        // Kokurikuler
+        $tema = $kelas ? $temaModel->findForKelasTa((int) $kelas['id_kelas'], $idTa) : null;
+        $kokoNarasi = '';
+        if ($tema) {
+            $dimensi = $siswaKokoModel->findForSiswaTema($idSiswa, (int) $tema['id_tema']);
+            $kokoNarasi = $narrative->generateNarasiKokurikuler($tema['nama_tema'], $dimensi);
+        }
+
+        // Ekstrakurikuler
+        $ekskul = $siswaEkskulModel->findForSiswaTa($idSiswa, $idTa);
+
+        // Fase (dari tingkat kelas)
+        $tingkat = (int) ($kelas['tingkat'] ?? 0);
+        $fase = match (true) {
+            $tingkat <= 2 => 'A',
+            $tingkat <= 4 => 'B',
+            default       => 'C',
         };
 
-        $namaSiswa = esc((string) ($siswa['nama_siswa'] ?? '-'));
-        $nis = esc((string) ($siswa['nis'] ?? '-'));
-        $nisn = esc((string) ($siswa['nisn'] ?? '-'));
-        $kelas = esc((string) ($siswa['nama_kelas'] ?? '-'));
-        $tempatLahir = esc((string) ($siswa['tempat_lahir'] ?? '-'));
-        $tanggalLahir = !empty($siswa['tanggal_lahir']) ? date('d-m-Y', strtotime($siswa['tanggal_lahir'])) : '-';
-        $tahun = esc((string) ($tahunAjaran['tahun_ajaran'] ?? '-'));
-        $semester = esc((string) ($tahunAjaran['semester'] ?? '-'));
-        $statusKenaikan = esc((string) ($rapor['status_kenaikan'] ?? 'Belum Ditentukan'));
-        $totalRows = count($kelompokA) + count($kelompokB);
-        $catatanPlain = trim((string) ($rapor['catatan_wali_kelas'] ?? 'Tidak ada catatan dari wali kelas.'));
-        if (mb_strlen($catatanPlain) > 600) {
-            $catatanPlain = rtrim(mb_substr($catatanPlain, 0, 600)) . '…';
-        }
-        $catatan = nl2br(esc($catatanPlain));
-        $notesPageBreak = ($totalRows > 18 || mb_strlen($catatanPlain) > 350) ? '<br pagebreak="true" />' : '';
-        $signaturePageBreak = $totalRows > 26 ? '<br pagebreak="true" />' : '';
+        return [
+            'siswa'        => $siswa,
+            'kelas'        => $kelas,
+            'tahun_ajaran' => $ta,
+            'rapor'        => $rapor,
+            'wali_kelas'   => $waliKelas,
+            'mapel'        => $mapelData,
+            'fase'         => $fase,
+            'koko_narasi'  => $kokoNarasi,
+            'tema'         => $tema,
+            'ekskul'       => $ekskul,
+        ];
+    }
 
-        $html = '
-        <style>
-            body { color: #24364b; }
-            .document-title { text-align: center; margin-bottom: 10px; }
-            .document-title h1 { font-size: 18px; margin: 0 0 4px; color: #1c4167; }
-            .document-title p { font-size: 10px; margin: 0; color: #6a7d90; }
-            .hero-box { border: 1px solid #d5e2ee; background: #f7fbff; padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; }
-            .header-table { width: 100%; margin-bottom: 12px; font-size: 10px; }
-            .header-table td { padding: 4px 5px; vertical-align: top; }
-            .nilai-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 9.5px; }
-            .nilai-table th { background-color: #234d73; color: #ffffff; padding: 8px 6px; border: 1px solid #d9e4ef; text-align: center; font-weight: bold; }
-            .nilai-table td { padding: 7px 6px; border: 1px solid #d9e4ef; }
-            .section-title { font-weight: bold; margin-top: 16px; margin-bottom: 6px; background-color: #eaf3fb; color: #234d73; padding: 7px 9px; border: 1px solid #d5e2ee; }
-            .text-center { text-align: center; }
-            .empty-state { text-align: center; color: #73859a; font-style: italic; padding: 10px; }
-            .note-box { border: 1px solid #d5e2ee; background: #fcfdff; padding: 10px 12px; font-size: 10px; }
-            .signature-table { width: 100%; margin-top: 32px; font-size: 10px; }
-            .signature-table td { padding: 10px; vertical-align: top; }
-            .footer-meta { margin-top: 16px; font-size: 8px; color: #7a8a9b; text-align: center; }
-        </style>
+    // ─── Renderers ────────────────────────────────────────────────────────────
 
-        <div class="document-title">
-            <h1>RAPOR SISWA</h1>
-            <p>SDN 3 MEKARSARI</p>
-            <p>Tahun Ajaran ' . $tahun . ' • Semester ' . $semester . '</p>
-        </div>
+    private function renderHeader(array $d, bool $compact = false): string
+    {
+        $s = $d['siswa'];
+        $k = $d['kelas'];
+        $ta = $d['tahun_ajaran'];
+        $alamat = esc((string) ($s['alamat'] ?? '-'));
+        $semesterNum = strtolower((string) ($ta['semester'] ?? '')) === 'genap' ? '2' : '1';
 
-        <div class="hero-box">
-            Dokumen ini merupakan ringkasan hasil belajar siswa yang telah difinalisasi pada sistem akademik SDN 3 Mekarsari.
-        </div>
+        $rows = [
+            ['Nama Murid', $s['nama_siswa'] ?? '-',           'Kelas',        $k['nama_kelas'] ?? '-'],
+            ['NIS/NISN',   ($s['nis'] ?? '-') . ' / ' . ($s['nisn'] ?? '-'), 'Fase', $d['fase']],
+            ['Sekolah',    self::SEKOLAH,                     'Semester',     $semesterNum],
+            ['Alamat',     $alamat,                           'Tahun Ajaran', $ta['tahun_ajaran'] ?? '-'],
+        ];
 
-        <table class="header-table">
-            <tr>
-                <td width="24%">Nama Siswa</td>
-                <td width="3%">:</td>
-                <td width="31%"><strong>' . $namaSiswa . '</strong></td>
-                <td width="18%">Kelas</td>
-                <td width="3%">:</td>
-                <td width="21%">' . $kelas . '</td>
-            </tr>
-            <tr>
-                <td>NIS / NISN</td>
-                <td>:</td>
-                <td>' . $nis . ' / ' . $nisn . '</td>
-                <td>Semester</td>
-                <td>:</td>
-                <td>' . $semester . '</td>
-            </tr>
-            <tr>
-                <td>Tempat, Tanggal Lahir</td>
-                <td>:</td>
-                <td>' . $tempatLahir . ', ' . esc($tanggalLahir) . '</td>
-                <td>Tahun Ajaran</td>
-                <td>:</td>
-                <td>' . $tahun . '</td>
-            </tr>
-        </table>
-
-        <div class="section-title">A. Kelompok Mata Pelajaran Nasional</div>
-        <table class="nilai-table">
-            <thead>
-                <tr>
-                    <th width="6%">No</th>
-                    <th width="38%">Mata Pelajaran</th>
-                    <th width="12%">KKM</th>
-                    <th width="14%">Nilai</th>
-                    <th width="10%">Huruf</th>
-                    <th width="20%">Keterangan</th>
-                </tr>
-            </thead>
-            <tbody>' . $renderRows($kelompokA) . '</tbody>
-        </table>
-
-        <div class="section-title">B. Kelompok Mata Pelajaran Muatan Lokal</div>
-        <table class="nilai-table">
-            <thead>
-                <tr>
-                    <th width="6%">No</th>
-                    <th width="38%">Mata Pelajaran</th>
-                    <th width="12%">KKM</th>
-                    <th width="14%">Nilai</th>
-                    <th width="10%">Huruf</th>
-                    <th width="20%">Keterangan</th>
-                </tr>
-            </thead>
-            <tbody>' . $renderRows($kelompokB) . '</tbody>
-        </table>';
-
-        if ($rapor) {
-            $html .= '
-            ' . $notesPageBreak . '
-            <div class="section-title">C. Ketidakhadiran</div>
-            <table class="header-table">
-                <tr>
-                    <td width="30%">Sakit</td>
-                    <td width="2%">:</td>
-                    <td width="68%">' . (int) ($rapor['sakit'] ?? 0) . ' hari</td>
-                </tr>
-                <tr>
-                    <td>Izin</td>
-                    <td>:</td>
-                    <td>' . (int) ($rapor['izin'] ?? 0) . ' hari</td>
-                </tr>
-                <tr>
-                    <td>Tanpa Keterangan (Alpa)</td>
-                    <td>:</td>
-                    <td>' . (int) ($rapor['alpa'] ?? 0) . ' hari</td>
-                </tr>
-            </table>
-
-            <div class="section-title">D. Catatan Wali Kelas</div>
-            <div class="note-box">' . $catatan . '</div>
-
-            <div class="section-title">E. Keputusan</div>
-            <div class="note-box"><strong>Berdasarkan hasil belajar pada semester ini, siswa ditetapkan: ' . $statusKenaikan . '.</strong></div>';
+        // Halaman 3 footer-style: kepalanya sama tapi ringkas tanpa "Fase"
+        if ($compact) {
+            $rows = [
+                ['Nama Murid', $s['nama_siswa'] ?? '-',           'Kelas',        $k['nama_kelas'] ?? '-'],
+                ['NIS/NISN',   ($s['nis'] ?? '-') . ' / ' . ($s['nisn'] ?? '-'), 'Semester', $semesterNum],
+                ['Sekolah',    self::SEKOLAH,                     'Tahun Ajaran', $ta['tahun_ajaran'] ?? '-'],
+                ['Alamat',     $alamat,                           '',             ''],
+            ];
         }
 
-        $html .= '
-        ' . $signaturePageBreak . '
-        <table class="signature-table">
-            <tr>
-                <td width="50%" class="text-center">
-                    <p>Orang Tua / Wali,</p>
-                    <br><br><br>
-                    <p>_____________________</p>
-                </td>
-                <td width="50%" class="text-center">
-                    <p>Wali Kelas,</p>
-                    <br><br><br>
-                    <p>_____________________</p>
-                </td>
-            </tr>
-        </table>
+        $h = '<table cellpadding="3" style="font-size:10px;width:100%;">';
+        foreach ($rows as $r) {
+            $h .= '<tr>'
+                . '<td width="22%">' . esc($r[0]) . '</td>'
+                . '<td width="2%">:</td>'
+                . '<td width="38%">' . esc($r[1]) . '</td>'
+                . '<td width="15%">' . esc($r[2]) . '</td>'
+                . '<td width="2%">' . ($r[2] ? ':' : '') . '</td>'
+                . '<td width="21%">' . esc($r[3]) . '</td>'
+                . '</tr>';
+        }
+        $h .= '</table>';
+        $h .= '<hr style="border-top:1px solid #999;margin:6px 0;">';
+        return $h;
+    }
 
-        <div class="footer-meta">
-            <p>Dokumen ini dihasilkan otomatis oleh Sistem Informasi Manajemen Nilai Siswa SDN 3 Mekarsari.</p>
-            <p>Tanggal cetak: ' . date('d-m-Y H:i:s') . '</p>
-        </div>';
+    private function renderTabelMapel(array $d, string $kelompok): string
+    {
+        $rows = $d['mapel'][$kelompok] ?? [];
+        $heading = $kelompok === 'wajib' ? 'Mata Pelajaran Wajib' : 'Mata Pelajaran Pilihan';
 
-        return $html;
+        $h = '<table border="0.5" cellpadding="4" style="width:100%;font-size:9.5px;border-collapse:collapse;">';
+        $h .= '<thead><tr style="background-color:#e8eef5;font-weight:bold;text-align:center;">'
+            . '<th width="5%">No</th>'
+            . '<th width="28%">Mata Pelajaran</th>'
+            . '<th width="10%">Nilai Akhir</th>'
+            . '<th width="57%">Capaian Kompetensi</th>'
+            . '</tr></thead>';
+        $h .= '<tbody>';
+        $h .= '<tr><td colspan="4" style="background-color:#f7f7f7;font-weight:bold;font-size:9.5px;">' . esc($heading) . '</td></tr>';
+
+        if (empty($rows)) {
+            $h .= '<tr><td colspan="4" style="text-align:center;color:#888;font-style:italic;">Tidak ada data.</td></tr>';
+        } else {
+            $no = 1;
+            foreach ($rows as $r) {
+                $nilai = isset($r['nilai_akhir']) ? number_format((float) $r['nilai_akhir'], 0) : '-';
+                $narasi = $r['capaian_narasi'] ?: '<span style="color:#aaa;font-style:italic;">Belum ada capaian dinilai.</span>';
+                $h .= '<tr>'
+                    . '<td style="text-align:center;">' . $no++ . '</td>'
+                    . '<td>' . esc((string) ($r['nama_mapel'] ?? '-')) . '</td>'
+                    . '<td style="text-align:center;font-weight:bold;">' . $nilai . '</td>'
+                    . '<td>' . $narasi . '</td>'
+                    . '</tr>';
+            }
+        }
+
+        $h .= '</tbody></table>';
+        return $h;
+    }
+
+    private function renderKokurikuler(array $d): string
+    {
+        $narasi = trim((string) ($d['koko_narasi'] ?? ''));
+        if ($narasi === '') {
+            $narasi = '<span style="color:#aaa;font-style:italic;">Belum ada capaian kokurikuler dinilai.</span>';
+        } else {
+            $narasi = nl2br(esc($narasi));
+        }
+        return '<br>'
+             . '<table border="0.5" cellpadding="4" style="width:100%;font-size:9.5px;">'
+             . '<tr><td style="background-color:#e8eef5;text-align:center;font-weight:bold;">Kokurikuler</td></tr>'
+             . '<tr><td style="font-size:9.5px;">' . $narasi . '</td></tr>'
+             . '</table>';
+    }
+
+    private function renderEkstrakurikuler(array $d): string
+    {
+        $rows = $d['ekskul'] ?? [];
+        $h = '<br><table border="0.5" cellpadding="4" style="width:100%;font-size:9.5px;border-collapse:collapse;">';
+        $h .= '<thead><tr style="background-color:#e8eef5;font-weight:bold;text-align:center;">'
+            . '<th width="5%">No</th>'
+            . '<th width="25%">Ekstrakurikuler</th>'
+            . '<th width="70%">Keterangan</th>'
+            . '</tr></thead><tbody>';
+        if (empty($rows)) {
+            $h .= '<tr><td colspan="3" style="text-align:center;color:#888;font-style:italic;">Belum ada ekstrakurikuler.</td></tr>';
+        } else {
+            $no = 1;
+            foreach ($rows as $r) {
+                $h .= '<tr>'
+                    . '<td style="text-align:center;">' . $no++ . '</td>'
+                    . '<td>' . esc((string) ($r['nama'] ?? '-')) . '</td>'
+                    . '<td>' . esc((string) ($r['keterangan'] ?? '-')) . '</td>'
+                    . '</tr>';
+            }
+        }
+        $h .= '</tbody></table>';
+        return $h;
+    }
+
+    private function renderKetidakhadiranCatatan(array $d): string
+    {
+        $rapor = $d['rapor'] ?? [];
+        $sakit = (int) ($rapor['sakit'] ?? 0);
+        $izin  = (int) ($rapor['izin'] ?? 0);
+        $alpa  = (int) ($rapor['alpa'] ?? 0);
+        $catatan = esc((string) ($rapor['catatan_wali_kelas'] ?? ''));
+
+        $absen = '<table border="0.5" cellpadding="4" style="width:100%;font-size:9.5px;">'
+               . '<tr><td colspan="3" style="background-color:#e8eef5;text-align:center;font-weight:bold;">Ketidakhadiran</td></tr>'
+               . '<tr><td width="50%">Sakit</td><td width="5%">:</td><td>' . $sakit . ' hari</td></tr>'
+               . '<tr><td>Izin</td><td>:</td><td>' . $izin . ' hari</td></tr>'
+               . '<tr><td>Tanpa Keterangan</td><td>:</td><td>' . $alpa . ' hari</td></tr>'
+               . '</table>';
+
+        $cat = '<table border="0.5" cellpadding="4" style="width:100%;font-size:9.5px;height:100%;">'
+             . '<tr><td style="background-color:#e8eef5;text-align:center;font-weight:bold;">Catatan Wali Kelas</td></tr>'
+             . '<tr><td style="font-size:9.5px;">' . ($catatan !== '' ? $catatan : '<span style="color:#aaa;font-style:italic;">Belum ada catatan.</span>') . '</td></tr>'
+             . '</table>';
+
+        return '<br><table cellpadding="3" style="width:100%;"><tr>'
+             . '<td width="40%" valign="top">' . $absen . '</td>'
+             . '<td width="60%" valign="top">' . $cat . '</td>'
+             . '</tr></table>';
+    }
+
+    private function renderTanggapan(): string
+    {
+        return '<br><table border="0.5" cellpadding="6" style="width:100%;font-size:9.5px;">'
+             . '<tr><td style="background-color:#e8eef5;text-align:center;font-weight:bold;">Tanggapan Orang Tua/Wali Murid</td></tr>'
+             . '<tr><td style="height:60px;"></td></tr>'
+             . '</table>';
+    }
+
+    private function renderTandaTangan(array $d): string
+    {
+        $narrative = new RaporNarrativeService();
+        $tanggal = $narrative->tanggalIndonesia();
+
+        $waliNama = $d['wali_kelas']['nama_lengkap'] ?? '-';
+        $waliUsername = $d['wali_kelas']['username'] ?? '';
+        $waliNip = self::NIP_GURU[$waliUsername] ?? '-';
+
+        return '<br><br>'
+             . '<table style="width:100%;font-size:10px;">'
+             . '<tr>'
+             . '<td width="33%"></td>'
+             . '<td width="33%"></td>'
+             . '<td width="33%" style="text-align:center;">Tabanan, ' . esc($tanggal) . '</td>'
+             . '</tr>'
+             . '<tr>'
+             . '<td style="text-align:center;">Orang Tua Murid</td>'
+             . '<td style="text-align:center;">Kepala Sekolah</td>'
+             . '<td style="text-align:center;">Wali Kelas</td>'
+             . '</tr>'
+             . '<tr><td colspan="3" style="height:60px;"></td></tr>'
+             . '<tr style="font-weight:bold;text-decoration:underline;">'
+             . '<td style="text-align:center;">......................................</td>'
+             . '<td style="text-align:center;">' . esc(self::KEPSEK_NAMA) . '</td>'
+             . '<td style="text-align:center;">' . esc($waliNama) . '</td>'
+             . '</tr>'
+             . '<tr style="font-size:9px;">'
+             . '<td></td>'
+             . '<td style="text-align:center;">NIP. ' . esc(self::KEPSEK_NIP) . '</td>'
+             . '<td style="text-align:center;">NIP. ' . esc($waliNip) . '</td>'
+             . '</tr>'
+             . '</table>';
     }
 }

@@ -150,50 +150,47 @@
                         $kelompokA = array_filter($nilai_akhir, fn($na) => $na['kelompok'] === 'A');
                         $kelompokB = array_filter($nilai_akhir, fn($na) => $na['kelompok'] === 'B');
                         ?>
+                        <?php
+                        // Helper: render satu baris nilai + badge "Catatan dari guru" jika flag_borderline_75=1.
+                        // Catatan ini HANYA tampil online (PDF cetak tidak menampilkan), per megaprompt Pek 6.5.
+                        $renderRow = function ($no, $na): void {
+                            $isBorderline = (int) ($na['flag_borderline_75'] ?? 0) === 1;
+                            $catatan = trim((string) ($na['catatan_remedial'] ?? ''));
+                            echo '<tr>'
+                                . '<td class="text-start">' . $no . '</td>'
+                                . '<td class="text-start">' . esc($na['nama_mapel']);
+                            if ($isBorderline && $catatan !== '') {
+                                echo ' <details class="d-inline-block ms-1 no-print">'
+                                    . '<summary class="badge bg-info text-dark fw-normal small" style="cursor:pointer;">'
+                                    . '📝 Catatan dari guru</summary>'
+                                    . '<div class="small text-muted fst-italic mt-1 p-2 bg-light rounded">'
+                                    . nl2br(esc($catatan)) . '</div></details>';
+                            }
+                            echo '</td>'
+                                . '<td><strong>' . number_format((float) $na['nilai_akhir'], 1) . '</strong></td>'
+                                . '<td><strong>' . esc((string) $na['nilai_huruf']) . '</strong></td>'
+                                . '<td>' . (isset($na['nilai_kkm']) ? number_format((float) $na['nilai_kkm'], 0) : '—') . '</td>'
+                                . '<td>';
+                            if (($na['status_kelulusan'] ?? '') === 'Tuntas') {
+                                echo '<span class="badge bg-success">Tuntas</span>';
+                            } else {
+                                echo '<span class="badge bg-danger">Remedial</span>';
+                            }
+                            echo '</td></tr>';
+                        };
+                        ?>
                         <?php if (!empty($kelompokA)): ?>
                             <tr class="table-light">
                                 <td colspan="6" class="text-start fw-bold">A. Kelompok Nasional</td>
                             </tr>
-                            <?php $no = 1;
-                            foreach ($kelompokA as $na): ?>
-                                <tr>
-                                    <td class="text-start"><?= $no++ ?></td>
-                                    <td class="text-start"><?= esc($na['nama_mapel']) ?></td>
-                                    <td><strong><?= number_format($na['nilai_akhir'], 1) ?></strong></td>
-                                    <td><strong><?= esc($na['nilai_huruf']) ?></strong></td>
-                                    <td><?= isset($na['nilai_kkm']) ? number_format((float) $na['nilai_kkm'], 0) : '—' ?></td>
-                                    <td>
-                                        <?php if ($na['status_kelulusan'] === 'Tuntas'): ?>
-                                            <span class="badge bg-success">Tuntas</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-danger">Remedial</span>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
+                            <?php $no = 1; foreach ($kelompokA as $na) { $renderRow($no++, $na); } ?>
                         <?php endif; ?>
 
                         <?php if (!empty($kelompokB)): ?>
                             <tr class="table-light">
                                 <td colspan="6" class="text-start fw-bold">B. Kelompok Muatan Lokal</td>
                             </tr>
-                            <?php $no = 1;
-                            foreach ($kelompokB as $na): ?>
-                                <tr>
-                                    <td class="text-start"><?= $no++ ?></td>
-                                    <td class="text-start"><?= esc($na['nama_mapel']) ?></td>
-                                    <td><strong><?= number_format($na['nilai_akhir'], 1) ?></strong></td>
-                                    <td><strong><?= esc($na['nilai_huruf']) ?></strong></td>
-                                    <td><?= isset($na['nilai_kkm']) ? number_format((float) $na['nilai_kkm'], 0) : '—' ?></td>
-                                    <td>
-                                        <?php if ($na['status_kelulusan'] === 'Tuntas'): ?>
-                                            <span class="badge bg-success">Tuntas</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-danger">Remedial</span>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
+                            <?php $no = 1; foreach ($kelompokB as $na) { $renderRow($no++, $na); } ?>
                         <?php endif; ?>
                     </tbody>
                 </table>

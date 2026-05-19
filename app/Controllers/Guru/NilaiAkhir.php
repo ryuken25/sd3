@@ -103,6 +103,9 @@ class NilaiAkhir extends BaseController
                 );
                 $statusKelulusan = $scoreService->determineStatus($nilaiAkhir, $nilaiKkm);
 
+                // Pek 6: tepat 75 = borderline (siswa di-katrol pasca remedial).
+                $flagBorderline = (abs($nilaiAkhir - 75.0) < 0.01);
+
                 $payload = [
                     'id_siswa' => $s['id_siswa'],
                     'id_mapel' => $id_mapel,
@@ -110,6 +113,7 @@ class NilaiAkhir extends BaseController
                     'nilai_akhir' => $nilaiAkhir,
                     'nilai_huruf' => $scoreService->determineLetter($nilaiAkhir),
                     'status_kelulusan' => $statusKelulusan,
+                    'flag_borderline_75' => $flagBorderline ? 1 : 0,
                 ];
 
                 $existingNilaiAkhir = $nilaiAkhirModel->where([
@@ -298,6 +302,68 @@ class NilaiAkhir extends BaseController
         ];
 
         return view('guru/nilai_akhir/rekap_remedial', $data);
+    }
+
+    /**
+     * Pek 6.4: simpan catatan_remedial untuk siswa borderline (nilai_akhir == 75).
+     * POST body: array `catatan[id_nilai_akhir] => string`.
+     * Validasi: kalau flag_borderline_75 = 1, catatan minimal 10 karakter.
+     */
+    public function saveCatatanBorderline()
+    {
+        $nilaiAkhirModel = new NilaiAkhirModel();
+        $data = $this->request->getPost('catatan');
+
+        if (!$data || !\is_array($data)) {
+            return redirect()->back()->with('error', 'Data catatan tidak valid.');
+        }
+
+        $idTahunAjaran = (int) $this->request->getPost('id_tahun_ajaran');
+        $idKelas       = (int) $this->request->getPost('id_kelas');
+        $idMapel       = (int) $this->request->getPost('id_mapel');
+
+        $tahunAjaranModel = new TahunAjaranModel();
+        $tahunAjaran = $idTahunAjaran ? $tahunAjaranModel->find($idTahunAjaran) : null;
+
+        if ($response = $this->guardGradeWriteAccess($tahunAjaran, 'Semester sudah dikunci. Ajukan request buka nilai.', $idKelas, $idMapel)) {
+            return $response;
+        }
+
+        $db = \Config\Database::connect();
+        $db->transStart();
+
+        try {
+            foreach ($data as $idNilaiAkhir => $catatan) {
+                $idNilaiAkhir = (int) $idNilaiAkhir;
+                $row = $nilaiAkhirModel->find($idNilaiAkhir);
+                if (!$row) {
+                    continue;
+                }
+
+                $isBorderline = ((int) ($row['flag_borderline_75'] ?? 0)) === 1;
+                $catatan = trim((string) $catatan);
+
+                if ($isBorderline && strlen($catatan) < 10) {
+                    $db->transRollback();
+                    return redirect()->back()->with('error',
+                        'Catatan wajib diisi minimal 10 karakter untuk siswa dengan nilai akhir 75.');
+                }
+
+                $nilaiAkhirModel->update($idNilaiAkhir, [
+                    'catatan_remedial' => $catatan !== '' ? $catatan : null,
+                ]);
+            }
+
+            $db->transComplete();
+            if ($db->transStatus() === false) {
+                return redirect()->back()->with('error', 'Gagal menyimpan catatan. Coba lagi.');
+            }
+            return redirect()->back()->with('success', 'Catatan borderline 75 tersimpan.');
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'Exception in saveCatatanBorderline: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+        }
     }
 
     // Save remedial actions (mandatory for students below KKM)

@@ -104,6 +104,20 @@ $routes->group('guru', ['filter' => ['auth', 'role:guru']], static function ($ro
     $routes->get('nilai-akhir/review', 'Guru\NilaiAkhir::review');
     $routes->get('nilai-akhir/rekap-remedial', 'Guru\NilaiAkhir::rekapRemedial');
     $routes->post('nilai-akhir/save-remedial', 'Guru\NilaiAkhir::saveRemedial');
+    $routes->post('nilai-akhir/save-catatan-borderline', 'Guru\NilaiAkhir::saveCatatanBorderline');
+
+    // Wali Kelas (rapor sections: catatan, ekskul, koko, ketidakhadiran)
+    $routes->get('wali-kelas', 'Guru\WaliKelas::index');
+    $routes->get('wali-kelas/siswa/(:num)', 'Guru\WaliKelas::siswa/$1');
+    $routes->post('wali-kelas/save-catatan', 'Guru\WaliKelas::saveCatatan');
+    $routes->post('wali-kelas/save-ekskul', 'Guru\WaliKelas::saveEkskul');
+    $routes->post('wali-kelas/save-kokurikuler', 'Guru\WaliKelas::saveKokurikuler');
+    $routes->post('wali-kelas/save-ketidakhadiran', 'Guru\WaliKelas::saveKetidakhadiran');
+
+    // Capaian Kompetensi (input CP per siswa per mapel)
+    $routes->get('capaian-kompetensi', 'Guru\CapaianKompetensi::index');
+    $routes->get('capaian-kompetensi/input', 'Guru\CapaianKompetensi::input');
+    $routes->post('capaian-kompetensi/save', 'Guru\CapaianKompetensi::save');
 
     // Request Buka Nilai
     $routes->get('request-buka-nilai', 'Guru\RequestBukaNilai::index');
