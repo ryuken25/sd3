@@ -65,6 +65,14 @@ class Rapor extends BaseController
             return redirect()->back()->with('error', $data['error']);
         }
 
+        // Pek 9: rapor download hanya tersedia kalau rapor sudah difinalisasi.
+        // Gate ini selaras dengan tombol "Download PDF" di e-rapor view yang
+        // hanya muncul kalau is_finalized = 1.
+        if (empty($data['rapor']) || (int) ($data['rapor']['is_finalized'] ?? 0) !== 1) {
+            return redirect()->to(base_url('orangtua/dashboard'))
+                ->with('error', 'Rapor belum difinalisasi. Tunggu wali kelas/admin memfinalkan.');
+        }
+
         $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('SDN 3 Mekarsari');
         $pdf->SetAuthor('SDN 3 Mekarsari');
@@ -74,9 +82,6 @@ class Rapor extends BaseController
         $pdf->setFooterFont(['courier', 'I', 8]);
         $pdf->setFooterData([0, 0, 0], [255, 255, 255]);
         $pdf->setFooterMargin(10);
-        // Custom footer: "Kelas X | NAMA | NIS    Halaman : N"
-        $footer = sprintf('Kelas %s | %s | %s', $data['kelas']['nama_kelas'] ?? '-',
-            $data['siswa']['nama_siswa'] ?? '-', $data['siswa']['nis'] ?? '-');
         $pdf->setPageMark();
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetAutoPageBreak(true, 18);
