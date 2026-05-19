@@ -13,7 +13,7 @@ class TahunAjaran extends BaseController
 
         $data = [
             'title' => 'Tahun Ajaran',
-            'ta' => $taModel->orderBy('id_tahun_ajaran', 'DESC')->findAll()
+            'ta' => $taModel->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll()
         ];
         return view('admin/tahun_ajaran/index', $data);
     }

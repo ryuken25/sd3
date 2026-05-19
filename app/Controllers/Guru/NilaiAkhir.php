@@ -25,7 +25,7 @@ class NilaiAkhir extends BaseController
             'title' => 'Proses Nilai Akhir',
             'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
             'mapel' => $mapelModel->getWithClasses(),
-            'tahun_ajaran' => $tahunAjaranModel->where('aktif', 'aktif')->findAll()
+            'tahun_ajaran' => $tahunAjaranModel->where('aktif', 'aktif')->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll()
         ];
 
         return view('guru/nilai_akhir/index', $data);
@@ -248,7 +248,7 @@ class NilaiAkhir extends BaseController
                 'title' => 'Rekap Remedial',
                 'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
                 'mapel' => $mapelModel->getWithClasses(),
-                'tahun_ajaran' => $tahunAjaranModel->where('aktif', 'aktif')->findAll(),
+                'tahun_ajaran' => $tahunAjaranModel->where('aktif', 'aktif')->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll(),
                 'siswa' => null,
                 'kkm' => null,
                 'selected_kelas' => null,
@@ -286,7 +286,7 @@ class NilaiAkhir extends BaseController
             'title' => 'Rekap Remedial',
             'kelas_list' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
             'mapel_list' => $mapelModel->getWithClasses(),
-            'tahun_ajaran_list' => $tahunAjaranModel->where('aktif', 'aktif')->findAll(),
+            'tahun_ajaran_list' => $tahunAjaranModel->where('aktif', 'aktif')->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll(),
             'kelas' => $kelas,
             'mapel' => $mapel,
             'tahun_ajaran' => $tahunAjaran,

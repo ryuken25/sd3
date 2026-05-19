@@ -43,7 +43,7 @@ class Siswa extends BaseController
             'title' => 'Data Siswa',
             'siswa' => $siswa,
             'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
-            'tahun_ajaran' => $tahunAjaranModel->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'ASC')->findAll(),
+            'tahun_ajaran' => $tahunAjaranModel->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll(),
             'filter_kelas' => $filterKelas,
             'filter_ta' => $filterTahunAjaran,
             'active_tahun_ajaran' => $activeTahunAjaran,

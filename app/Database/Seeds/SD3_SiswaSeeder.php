@@ -24,6 +24,30 @@ use CodeIgniter\Database\Seeder;
  */
 class SD3_SiswaSeeder extends Seeder
 {
+    /**
+     * Dummy tempat_lahir / tanggal_lahir / alamat — deterministik dari NIS supaya
+     * siswa yang sama (lintas TA) selalu dapat data personal yang konsisten.
+     *
+     * Range tanggal lahir 2011–2017 → usia 7–13 thn pada TA aktif 2025/2026.
+     */
+    private function personalDataForNis(string $nis): array
+    {
+        $tmptPool   = ['Tabanan', 'Denpasar', 'Singaraja', 'Buleleng'];
+        $dusunPool  = ['Tundak', 'Mekar Sari', 'Bunut', 'Tegeha', 'Banjar Baru'];
+        $tmpt       = $tmptPool[crc32($nis) % count($tmptPool)];
+        $dusun      = $dusunPool[crc32($nis . 'a') % count($dusunPool)];
+        $birthYear  = 2011 + (crc32($nis . 'y') % 7);  // 2011..2017
+        $birthMonth = 1 + (crc32($nis . 'm') % 12);    // 1..12
+        $birthDay   = 1 + (crc32($nis . 'd') % 28);    // 1..28
+        $tanggal    = sprintf('%04d-%02d-%02d', $birthYear, $birthMonth, $birthDay);
+
+        return [
+            'tempat_lahir'  => $tmpt,
+            'tanggal_lahir' => $tanggal,
+            'alamat'        => "Dsn. {$dusun}, Ds. Mekarsari, Kec. Baturiti, Tabanan",
+        ];
+    }
+
     // ─── DATA SISWA HARDCODED dari parse absensi.xls ──────────────────────────
     private function getSiswaPerKelas(): array
     {
@@ -233,11 +257,16 @@ class SD3_SiswaSeeder extends Seeder
                         ->where('id_tahun_ajaran', $taId)
                         ->get()->getRow();
 
+                    $personal = $this->personalDataForNis($nis);
+
                     $record = [
                         'nisn'            => $nisn ?: null,
                         'nis'             => $nis,
                         'nama_siswa'      => $nama,
                         'jenis_kelamin'   => $jk,
+                        'tempat_lahir'    => $personal['tempat_lahir'],
+                        'tanggal_lahir'   => $personal['tanggal_lahir'],
+                        'alamat'          => $personal['alamat'],
                         'id_kelas'        => $kelasId,
                         'id_tahun_ajaran' => $taId,
                         'id_user_ortu'    => $idUserOrtu,

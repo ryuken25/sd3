@@ -7,7 +7,7 @@
 <a href="<?= base_url('guru/nilai-harian') ?>" class="active"><i class="bi bi-journal-text me-2"></i> Nilai Harian</a>
 <a href="<?= base_url('guru/nilai-ujian') ?>"><i class="bi bi-file-earmark-text me-2"></i> Nilai UTS/UAS</a>
 <a href="<?= base_url('guru/penilaian-agregat') ?>"><i class="bi bi-files me-2"></i> Penilaian Agregat</a>
-<a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir & Remedial</a>
+<a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir</a>
 <a href="<?= base_url('guru/nilai-akhir/rekap-remedial') ?>"><i class="bi bi-list-check me-2"></i> Rekap Remedial</a>
 <div class="sidebar-heading mt-3">Lainnya</div>
 <a href="<?= base_url('guru/request-buka-nilai') ?>"><i class="bi bi-unlock me-2"></i> Permintaan Buka Nilai</a>

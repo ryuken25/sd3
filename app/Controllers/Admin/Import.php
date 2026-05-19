@@ -26,7 +26,7 @@ class Import extends BaseController
             'kelas'               => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
             'tahun_ajaran'        => $tahunAjaranModel
                 ->orderBy('tahun_ajaran', 'DESC')
-                ->orderBy('semester', 'ASC')
+                ->orderBy('semester', 'DESC')
                 ->findAll(),
             'active_tahun_ajaran' => $activeTahunAjaran,
         ];

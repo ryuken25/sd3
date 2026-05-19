@@ -33,8 +33,12 @@ class SD3_GuruSeeder extends Seeder
 
         $guruData = [
             [
+                // Akun login admin sekolah. Identitas Kepala Sekolah (Ni Wayan
+                // Kasrinayanti, NIP 198408132014062008) akan dipakai sebagai konstanta
+                // pada PDF rapor saat fitur cetak diimplementasi (Pek. 7) — tidak
+                // terikat ke akun admin ini.
                 'username'     => 'kasrinayanti',
-                'nama_lengkap' => 'Ni Wayan Kasrinayanti, S.Pd',
+                'nama_lengkap' => 'I Gst. Ngurah Bgs. Ariwidnya, S. Pd.',
                 'nip'          => '198408132014062008',
                 'level'        => 'admin',
                 'jabatan'      => 'Kepala Sekolah',

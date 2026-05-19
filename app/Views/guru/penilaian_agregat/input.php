@@ -6,7 +6,7 @@
 <div class="sidebar-heading mt-3">Input Nilai</div>
 <a href="<?= base_url('guru/penilaian-agregat') ?>" class="active"><i class="bi bi-files me-2"></i> Penilaian
     Agregat</a>
-<a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir & Remedial</a>
+<a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir</a>
 <a href="<?= base_url('guru/nilai-akhir/rekap-remedial') ?>"><i class="bi bi-list-check me-2"></i> Rekap Remedial</a>
 <div class="sidebar-heading mt-3">Lainnya</div>
 <a href="<?= base_url('guru/request-buka-nilai') ?>"><i class="bi bi-unlock me-2"></i> Permintaan Buka Nilai</a>

@@ -87,7 +87,7 @@ class Rapor extends BaseController
             'title'                 => 'Manajemen Rapor',
             'rapor_data'            => $rapor_data,
             'siswa'                 => $siswaModel->where('status', 'aktif')->findAll(),
-            'tahun_ajaran'          => $tahunAjaranModel->findAll(),
+            'tahun_ajaran'          => $tahunAjaranModel->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll(),
             'kelas'                 => $kelasModel->findAll(),
             'filter_ta'             => $filter_ta,
             'filter_kelas'          => $filter_kelas,

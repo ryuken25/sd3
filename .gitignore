@@ -76,6 +76,7 @@ weight/
 
 # Local scripts/artifacts outside the core app
 agent/
+contoh/
 data/
 docs/
 implementasi/

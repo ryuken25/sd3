@@ -50,7 +50,7 @@ class Kkm extends BaseController
             'kkm'   => $kkmList,
             'mapel' => $mapelModel->getWithClasses(),
             'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
-            'ta'    => $taModel->orderBy('id_tahun_ajaran', 'DESC')->findAll(),
+            'ta'    => $taModel->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll(),
             'filter_kelas' => $filterKelas,
             'filter_ta'    => $filterTa,
         ];

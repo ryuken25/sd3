@@ -32,7 +32,7 @@ class RequestBukaNilai extends BaseController
         $data = [
             'title' => 'Permintaan Buka Nilai',
             'my_requests' => $myRequests,
-            'tahun_ajaran' => $tahunAjaranModel->orderBy('id_tahun_ajaran', 'DESC')->findAll(),
+            'tahun_ajaran' => $tahunAjaranModel->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll(),
             'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
             'mapel' => $mapelModel->getWithClasses(),
         ];

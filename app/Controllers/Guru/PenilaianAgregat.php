@@ -29,7 +29,7 @@ class PenilaianAgregat extends BaseController
             'title' => 'Penilaian Agregat',
             'kelas' => $kelasModel->orderBy('tingkat', 'ASC')->orderBy('nama_kelas', 'ASC')->findAll(),
             'mapel' => $mapelModel->getWithClasses(),
-            'tahun_ajaran' => $tahunAjaranModel->where('aktif', 'aktif')->findAll()
+            'tahun_ajaran' => $tahunAjaranModel->where('aktif', 'aktif')->orderBy('tahun_ajaran', 'DESC')->orderBy('semester', 'DESC')->findAll()
         ];
 
         return view('guru/penilaian_agregat/index', $data);
