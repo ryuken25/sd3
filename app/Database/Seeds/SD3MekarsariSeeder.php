@@ -29,6 +29,14 @@ class SD3MekarsariSeeder extends Seeder
         $this->call(SD3_KkmSeeder::class);
         $this->call(SD3_NilaiSeeder::class);
         $this->call(SD3_RaporSeeder::class);
+
+        // Megaprompt revisi rapor (Tier B/C masters)
+        $this->call(SD3_TemplateCatatanSeeder::class);
+        $this->call(SD3_EkstrakurikulerSeeder::class);
+        $this->call(SD3_DimensiPancasilaSeeder::class);
+        $this->call(SD3_KokurikulerTemaSeeder::class);
+        $this->call(SD3_CapaianPembelajaranSeeder::class);
+
         $this->call(SD3_CapturePrepSeeder::class);
 
         echo "\n✅  Semua data berhasil di-import!\n\n";
