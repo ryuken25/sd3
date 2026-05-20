@@ -9,6 +9,7 @@
 <a href="<?= base_url('guru/nilai-akhir/rekap-remedial') ?>"><i class="bi bi-list-check me-2"></i> Rekap Remedial</a>
 <div class="sidebar-heading mt-3">Lainnya</div>
 <a href="<?= base_url('guru/request-buka-nilai') ?>"><i class="bi bi-unlock me-2"></i> Permintaan Buka Nilai</a>
+<a href="<?= base_url('help/panduan-rapor') ?>"><i class="bi bi-question-circle me-2"></i> Panduan Penggunaan</a>
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
