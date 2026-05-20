@@ -11,11 +11,77 @@
 
 <?= $this->section('styles') ?>
 <style>
+    /* Tampilan e-rapor mirip lembar PDF: putih, bordered, font kecil. */
+    .rapor-sheet {
+        background: #fff;
+        max-width: 920px;
+        margin: 0 auto;
+        font-size: 13px;
+        color: #222;
+    }
+
+    .rapor-sheet table.tbl {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .rapor-sheet table.tbl th,
+    .rapor-sheet table.tbl td {
+        border: 1px solid #555;
+        padding: 6px 8px;
+        vertical-align: top;
+    }
+
+    .rapor-sheet table.tbl thead th {
+        background: #e8eef5;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .rapor-sheet .row-group td {
+        background: #f4f4f4;
+        font-weight: 700;
+    }
+
+    .rapor-header-tbl td {
+        padding: 2px 4px;
+        font-size: 13px;
+    }
+
+    .rapor-title {
+        text-align: center;
+        font-weight: 700;
+        letter-spacing: .5px;
+        margin: 14px 0;
+    }
+
+    .rapor-section-head {
+        background: #e8eef5;
+        border: 1px solid #555;
+        text-align: center;
+        font-weight: 700;
+        padding: 6px;
+    }
+
+    .rapor-box {
+        border: 1px solid #555;
+        padding: 10px 12px;
+    }
+
+    .ttd-area {
+        text-align: center;
+    }
+
+    .ttd-name {
+        font-weight: 700;
+        text-decoration: underline;
+        margin-bottom: 0;
+    }
+
     @media print {
 
         .sidebar,
         nav.navbar,
-        .btn,
         .no-print {
             display: none !important;
         }
@@ -25,232 +91,253 @@
             padding: 0 !important;
         }
 
-        .print-area {
+        .rapor-sheet {
             max-width: 100% !important;
         }
 
         .card {
             box-shadow: none !important;
-            border: 1px solid #ccc !important;
+            border: none !important;
         }
 
         body {
-            background: white !important;
+            background: #fff !important;
         }
-    }
 
-    .rapor-header {
-        border-bottom: 3px double #333;
+        /* Badge "Catatan dari guru" hanya untuk layar — tidak ikut tercetak. */
+        .online-only {
+            display: none !important;
+        }
     }
 </style>
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+<?php
+    $semesterNum = strtolower((string) ($tahun_ajaran['semester'] ?? '')) === 'genap' ? '2' : '1';
+    $tglLahir    = !empty($siswa['tanggal_lahir'])
+        ? date('d-m-Y', strtotime($siswa['tanggal_lahir']))
+        : '-';
+
+    /**
+     * Render baris tabel mata pelajaran.
+     * Badge "Catatan dari guru" hanya tampil online (class online-only) untuk
+     * nilai dengan flag_borderline_75 = 1 — tidak ikut tercetak (Pek 6.5).
+     */
+    $renderMapelRows = function (array $rows): string {
+        if (empty($rows)) {
+            return '<tr><td colspan="4" class="text-center text-muted fst-italic">Belum ada data.</td></tr>';
+        }
+        $html = '';
+        $no = 1;
+        foreach ($rows as $r) {
+            $nilai  = isset($r['nilai_akhir']) ? number_format((float) $r['nilai_akhir'], 0) : '-';
+            $narasi = trim((string) ($r['capaian_narasi'] ?? ''));
+            $narasiHtml = $narasi !== ''
+                ? nl2br(esc($narasi))
+                : '<span class="text-muted fst-italic">Belum ada capaian dinilai.</span>';
+
+            $isBorderline = (int) ($r['flag_borderline_75'] ?? 0) === 1;
+            $catatan      = trim((string) ($r['catatan_remedial'] ?? ''));
+            $badge = '';
+            if ($isBorderline && $catatan !== '') {
+                $badge = '<details class="online-only d-block mt-2">'
+                    . '<summary class="badge bg-info text-dark fw-normal" style="cursor:pointer;">'
+                    . '&#128221; Catatan dari guru</summary>'
+                    . '<div class="small text-muted fst-italic mt-1 p-2 bg-light rounded border">'
+                    . nl2br(esc($catatan)) . '</div></details>';
+            }
+
+            $html .= '<tr>'
+                . '<td class="text-center">' . $no++ . '</td>'
+                . '<td>' . esc((string) ($r['nama_mapel'] ?? '-')) . '</td>'
+                . '<td class="text-center fw-bold">' . $nilai . '</td>'
+                . '<td>' . $narasiHtml . $badge . '</td>'
+                . '</tr>';
+        }
+        return $html;
+    };
+?>
+
 <div class="d-flex justify-content-between align-items-center mb-4 no-print">
     <div>
         <h4 class="fw-bold text-pastel-primary mb-1"><i class="bi bi-file-earmark-text me-2"></i>E-Rapor Digital</h4>
-        <p class="text-muted mb-0"><?= esc($siswa['nama_siswa']) ?> | <?= esc($tahun_ajaran['tahun_ajaran']) ?> Semester
-            <?= esc($tahun_ajaran['semester']) ?>
-        </p>
+        <p class="text-muted mb-0"><?= esc($siswa['nama_siswa']) ?> | <?= esc($tahun_ajaran['tahun_ajaran']) ?>
+            Semester <?= esc($tahun_ajaran['semester']) ?></p>
     </div>
-    <div class="d-flex gap-2 no-print">
-        <a href="<?= base_url('orangtua/grades/' . $siswa['id_siswa']) ?>" class="btn btn-outline-secondary btn-sm"><i
-                class="bi bi-arrow-left me-1"></i> Kembali</a>
-        <?php if (!empty($rapor['is_finalized'])): ?>
-            <a href="<?= base_url('orangtua/rapor/download/' . $siswa['id_siswa'] . '/' . $tahun_ajaran['id_tahun_ajaran']) ?>"
-                class="btn btn-danger btn-sm fw-semibold">
-                <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
-            </a>
-            <button onclick="window.print()" class="btn btn-primary bg-pastel-primary border-0 btn-sm fw-semibold">
-                <i class="bi bi-printer me-1"></i> Cetak
-            </button>
-        <?php endif; ?>
+    <div class="d-flex gap-2">
+        <a href="<?= base_url('orangtua/grades/' . $siswa['id_siswa']) ?>" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Kembali</a>
+        <a href="<?= base_url('orangtua/rapor/download/' . $siswa['id_siswa'] . '/' . $tahun_ajaran['id_tahun_ajaran']) ?>"
+            class="btn btn-danger btn-sm fw-semibold">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF</a>
+        <button onclick="window.print()" class="btn btn-primary bg-pastel-primary border-0 btn-sm fw-semibold">
+            <i class="bi bi-printer me-1"></i> Cetak</button>
     </div>
 </div>
 
-<?php if (!$rapor): ?>
-    <div class="alert alert-warning">
-        <i class="bi bi-exclamation-triangle me-2"></i>
-        Rapor belum difinalisasi oleh admin/wali kelas. Silakan cek kembali nanti.
-    </div>
-<?php else: ?>
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4 p-md-5">
+        <div class="rapor-sheet">
 
-    <div class="card border-0 shadow-sm print-area">
-        <div class="card-body p-4 p-md-5">
+            <!-- ═══ Header siswa (2 kolom, match PDF) ═══ -->
+            <table class="rapor-header-tbl" style="width:100%;">
+                <tr>
+                    <td style="width:13%;">Nama Murid</td>
+                    <td style="width:2%;">:</td>
+                    <td style="width:37%;"><strong><?= esc($siswa['nama_siswa']) ?></strong></td>
+                    <td style="width:13%;">Kelas</td>
+                    <td style="width:2%;">:</td>
+                    <td style="width:33%;"><?= esc($kelas['nama_kelas'] ?? '-') ?></td>
+                </tr>
+                <tr>
+                    <td>NIS/NISN</td>
+                    <td>:</td>
+                    <td><?= esc($siswa['nis'] ?? '-') ?> / <?= esc($siswa['nisn'] ?? '-') ?></td>
+                    <td>Fase</td>
+                    <td>:</td>
+                    <td><?= esc($fase) ?></td>
+                </tr>
+                <tr>
+                    <td>Sekolah</td>
+                    <td>:</td>
+                    <td><?= esc($sekolah) ?></td>
+                    <td>Semester</td>
+                    <td>:</td>
+                    <td><?= esc($semesterNum) ?></td>
+                </tr>
+                <tr>
+                    <td>Alamat</td>
+                    <td>:</td>
+                    <td><?= esc($siswa['alamat'] ?? '-') ?></td>
+                    <td>Tahun Ajaran</td>
+                    <td>:</td>
+                    <td><?= esc($tahun_ajaran['tahun_ajaran']) ?></td>
+                </tr>
+            </table>
+            <hr style="border-top:1px solid #999;">
 
-            <!-- Rapor Header -->
-            <div class="text-center mb-4 rapor-header pb-4">
-                <h4 class="fw-bold mb-0">LAPORAN HASIL BELAJAR SISWA</h4>
-                <h5>SDN 3 MEKARSARI</h5>
-                <p class="mb-0">Tahun Pelajaran <?= esc($tahun_ajaran['tahun_ajaran']) ?> — Semester
-                    <?= esc($tahun_ajaran['semester']) ?>
-                </p>
+            <div class="rapor-title h5">LAPORAN HASIL BELAJAR</div>
+
+            <!-- ═══ Tabel Mata Pelajaran Wajib ═══ -->
+            <table class="tbl mb-4">
+                <thead>
+                    <tr>
+                        <th style="width:5%;">No</th>
+                        <th style="width:28%;">Mata Pelajaran</th>
+                        <th style="width:10%;">Nilai Akhir</th>
+                        <th style="width:57%;">Capaian Kompetensi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-group">
+                        <td colspan="4">Mata Pelajaran Wajib</td>
+                    </tr>
+                    <?= $renderMapelRows($mapel['wajib'] ?? []) ?>
+                    <tr class="row-group">
+                        <td colspan="4">Mata Pelajaran Pilihan</td>
+                    </tr>
+                    <?= $renderMapelRows($mapel['pilihan'] ?? []) ?>
+                </tbody>
+            </table>
+
+            <!-- ═══ Kokurikuler ═══ -->
+            <div class="rapor-section-head">Kokurikuler</div>
+            <div class="rapor-box mb-4">
+                <?php $koko = trim((string) ($koko_narasi ?? '')); ?>
+                <?php if ($koko !== ''): ?>
+                    <?= nl2br(esc($koko)) ?>
+                <?php else: ?>
+                    <span class="text-muted fst-italic">Belum ada capaian kokurikuler dinilai.</span>
+                <?php endif; ?>
             </div>
 
-            <!-- Data Siswa -->
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <table class="table table-borderless table-sm small">
+            <!-- ═══ Ekstrakurikuler ═══ -->
+            <table class="tbl mb-4">
+                <thead>
+                    <tr>
+                        <th style="width:5%;">No</th>
+                        <th style="width:28%;">Ekstrakurikuler</th>
+                        <th style="width:67%;">Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($ekskul)): ?>
                         <tr>
-                            <td style="width:140px">Nama Siswa</td>
-                            <td>: <strong><?= esc($siswa['nama_siswa']) ?></strong></td>
+                            <td colspan="3" class="text-center text-muted fst-italic">Belum ada ekstrakurikuler.</td>
                         </tr>
-                        <tr>
-                            <td>NIS</td>
-                            <td>: <?= esc($siswa['nis']) ?></td>
-                        </tr>
-                        <tr>
-                            <td>NISN</td>
-                            <td>: <?= esc($siswa['nisn'] ?? '-') ?></td>
-                        </tr>
-                        <tr>
-                            <td>Jenis Kelamin</td>
-                            <td>: <?= $siswa['jenis_kelamin'] === 'L' ? 'Laki-laki' : 'Perempuan' ?></td>
-                        </tr>
-                    </table>
-                </div>
-                <div class="col-md-6">
-                    <table class="table table-borderless table-sm small">
-                        <tr>
-                            <td style="width:140px">Tempat/Tgl Lahir</td>
-                            <td>: <?= esc($siswa['tempat_lahir'] ?? '-') ?>,
-                                <?= $siswa['tanggal_lahir'] ? date('d-m-Y', strtotime($siswa['tanggal_lahir'])) : '-' ?>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Alamat</td>
-                            <td>: <?= esc($siswa['alamat'] ?? '-') ?></td>
-                        </tr>
-                        <tr>
-                            <td>Status Kenaikan</td>
-                            <td>: <strong
-                                    class="text-<?= $rapor['status_kenaikan'] === 'Naik' ? 'success' : 'danger' ?>"><?= esc($rapor['status_kenaikan'] ?? 'Belum Ditentukan') ?></strong>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Tabel Nilai -->
-            <h6 class="fw-bold border-bottom pb-2 mb-3">A. REKAP NILAI MATA PELAJARAN</h6>
-            <div class="table-responsive mb-4">
-                <table class="table table-bordered table-sm text-center">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="text-start">No</th>
-                            <th class="text-start">Mata Pelajaran</th>
-                            <th>Nilai Akhir</th>
-                            <th>Huruf</th>
-                            <th>KKM</th>
-                            <th>Predikat</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        $kelompokA = array_filter($nilai_akhir, fn($na) => $na['kelompok'] === 'A');
-                        $kelompokB = array_filter($nilai_akhir, fn($na) => $na['kelompok'] === 'B');
-                        ?>
-                        <?php
-                        // Helper: render satu baris nilai + badge "Catatan dari guru" jika flag_borderline_75=1.
-                        // Catatan ini HANYA tampil online (PDF cetak tidak menampilkan), per megaprompt Pek 6.5.
-                        $renderRow = function ($no, $na): void {
-                            $isBorderline = (int) ($na['flag_borderline_75'] ?? 0) === 1;
-                            $catatan = trim((string) ($na['catatan_remedial'] ?? ''));
-                            echo '<tr>'
-                                . '<td class="text-start">' . $no . '</td>'
-                                . '<td class="text-start">' . esc($na['nama_mapel']);
-                            if ($isBorderline && $catatan !== '') {
-                                echo ' <details class="d-inline-block ms-1 no-print">'
-                                    . '<summary class="badge bg-info text-dark fw-normal small" style="cursor:pointer;">'
-                                    . '📝 Catatan dari guru</summary>'
-                                    . '<div class="small text-muted fst-italic mt-1 p-2 bg-light rounded">'
-                                    . nl2br(esc($catatan)) . '</div></details>';
-                            }
-                            echo '</td>'
-                                . '<td><strong>' . number_format((float) $na['nilai_akhir'], 1) . '</strong></td>'
-                                . '<td><strong>' . esc((string) $na['nilai_huruf']) . '</strong></td>'
-                                . '<td>' . (isset($na['nilai_kkm']) ? number_format((float) $na['nilai_kkm'], 0) : '—') . '</td>'
-                                . '<td>';
-                            if (($na['status_kelulusan'] ?? '') === 'Tuntas') {
-                                echo '<span class="badge bg-success">Tuntas</span>';
-                            } else {
-                                echo '<span class="badge bg-danger">Remedial</span>';
-                            }
-                            echo '</td></tr>';
-                        };
-                        ?>
-                        <?php if (!empty($kelompokA)): ?>
-                            <tr class="table-light">
-                                <td colspan="6" class="text-start fw-bold">A. Kelompok Nasional</td>
+                    <?php else: ?>
+                        <?php $no = 1;
+                        foreach ($ekskul as $e): ?>
+                            <tr>
+                                <td class="text-center"><?= $no++ ?></td>
+                                <td><?= esc($e['nama'] ?? '-') ?></td>
+                                <td><?= esc($e['keterangan'] ?? '-') ?></td>
                             </tr>
-                            <?php $no = 1; foreach ($kelompokA as $na) { $renderRow($no++, $na); } ?>
-                        <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
 
-                        <?php if (!empty($kelompokB)): ?>
-                            <tr class="table-light">
-                                <td colspan="6" class="text-start fw-bold">B. Kelompok Muatan Lokal</td>
-                            </tr>
-                            <?php $no = 1; foreach ($kelompokB as $na) { $renderRow($no++, $na); } ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Kehadiran -->
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h6 class="fw-bold border-bottom pb-2 mb-3">B. DATA KEHADIRAN</h6>
-                    <table class="table table-bordered table-sm text-center">
+            <!-- ═══ Ketidakhadiran + Catatan Wali Kelas ═══ -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-5">
+                    <div class="rapor-section-head">Ketidakhadiran</div>
+                    <table class="tbl">
                         <tr>
-                            <td class="text-start">Sakit</td>
-                            <td><?= $rapor['sakit'] ?? 0 ?> hari</td>
+                            <td>Sakit</td>
+                            <td style="width:14%;text-align:center;">:</td>
+                            <td style="width:30%;"><?= (int) ($rapor['sakit'] ?? 0) ?> hari</td>
                         </tr>
                         <tr>
-                            <td class="text-start">Izin</td>
-                            <td><?= $rapor['izin'] ?? 0 ?> hari</td>
+                            <td>Izin</td>
+                            <td style="text-align:center;">:</td>
+                            <td><?= (int) ($rapor['izin'] ?? 0) ?> hari</td>
                         </tr>
                         <tr>
-                            <td class="text-start">Alpa (Tanpa Keterangan)</td>
-                            <td><?= $rapor['alpa'] ?? 0 ?> hari</td>
+                            <td>Tanpa Keterangan</td>
+                            <td style="text-align:center;">:</td>
+                            <td><?= (int) ($rapor['alpa'] ?? 0) ?> hari</td>
                         </tr>
                     </table>
                 </div>
-                <div class="col-md-6">
-                    <h6 class="fw-bold border-bottom pb-2 mb-3">C. CATATAN WALI KELAS</h6>
-                    <div class="p-3 bg-light rounded small">
-                        <?= esc($rapor['catatan_wali_kelas'] ?? 'Tidak ada catatan dari wali kelas.') ?>
+                <div class="col-md-7">
+                    <div class="rapor-section-head">Catatan Wali Kelas</div>
+                    <div class="rapor-box" style="min-height:108px;">
+                        <?php $catatanWali = trim((string) ($rapor['catatan_wali_kelas'] ?? '')); ?>
+                        <?= $catatanWali !== ''
+                            ? nl2br(esc($catatanWali))
+                            : '<span class="text-muted fst-italic">Belum ada catatan dari wali kelas.</span>' ?>
                     </div>
                 </div>
             </div>
 
-            <!-- Keputusan -->
-            <div class="mb-4">
-                <h6 class="fw-bold border-bottom pb-2 mb-3">D. KEPUTUSAN</h6>
-                <p>Berdasarkan hasil yang dicapai, siswa ditetapkan:
-                    <strong
-                        class="text-<?= $rapor['status_kenaikan'] === 'Naik' ? 'success' : ($rapor['status_kenaikan'] === 'Lulus' ? 'primary' : 'danger') ?>">
-                        <?= esc($rapor['status_kenaikan'] ?? 'Belum Ditentukan') ?>
-                    </strong>
-                </p>
-            </div>
+            <!-- ═══ Tanggapan Orang Tua/Wali Murid ═══ -->
+            <div class="rapor-section-head">Tanggapan Orang Tua/Wali Murid</div>
+            <div class="rapor-box mb-4" style="min-height:80px;"></div>
 
-            <!-- Tanda Tangan -->
+            <!-- ═══ Tanda Tangan ═══ -->
             <div class="row mt-5">
-                <div class="col-4 text-center">
-                    <p class="mb-0">Orang Tua / Wali</p>
-                    <div style="height:70px"></div>
-                    <p class="mb-0 fw-bold">( _________________ )</p>
+                <div class="col-4 ttd-area">
+                    <p class="mb-0">Orang Tua Murid</p>
+                    <div style="height:72px;"></div>
+                    <p class="ttd-name">......................................</p>
                 </div>
-                <div class="col-4"></div>
-                <div class="col-4 text-center">
-                    <p class="mb-0">Wali Kelas</p>
-                    <div style="height:70px"></div>
-                    <p class="mb-0 fw-bold">( _________________ )</p>
-                    <small>NIP. ________________</small>
+                <div class="col-4 ttd-area">
+                    <p class="mb-0">Kepala Sekolah</p>
+                    <div style="height:72px;"></div>
+                    <p class="ttd-name"><?= esc($kepsek_nama) ?></p>
+                    <small>NIP. <?= esc($kepsek_nip) ?></small>
+                </div>
+                <div class="col-4 ttd-area">
+                    <p class="mb-0">Tabanan, <?= esc($tanggal_indo) ?><br>Wali Kelas</p>
+                    <div style="height:52px;"></div>
+                    <p class="ttd-name"><?= esc($wali_kelas['nama_lengkap'] ?? '-') ?></p>
+                    <small>NIP. <?= esc($wali_nip) ?></small>
                 </div>
             </div>
 
         </div>
     </div>
-<?php endif; ?>
+</div>
 <?= $this->endSection() ?>

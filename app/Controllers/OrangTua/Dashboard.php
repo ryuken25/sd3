@@ -168,68 +168,32 @@ class Dashboard extends BaseController
         return view('orangtua/grades/view', $data);
     }
 
-    // View e-rapor (if semester is locked and rapor is finalized)
+    // View e-rapor online — layout match PDF referensi (Pek 9).
     public function viewRapor($id_siswa, $id_tahun_ajaran)
     {
         $session = session();
         $id_user = $session->get('id_user');
 
         $siswaModel = new SiswaModel();
-        $access = $siswaModel->isOwnedByParent((int) $id_siswa, (int) $id_user);
-
-        if (!$access) {
+        if (!$siswaModel->isOwnedByParent((int) $id_siswa, (int) $id_user)) {
             return redirect()->to(base_url('orangtua/dashboard'))->with('error', 'Akses ditolak');
         }
 
-        $raporModel = new RaporModel();
-        $nilaiAkhirModel = new NilaiAkhirModel();
-        $tahunAjaranModel = new TahunAjaranModel();
-
-        $siswa = $siswaModel->find($id_siswa);
-        $tahunAjaran = $tahunAjaranModel->find($id_tahun_ajaran);
-
-        // Validate data exists
-        if (!$siswa) {
-            return redirect()->to(base_url('orangtua/dashboard'))->with('error', 'Data siswa tidak ditemukan');
+        // Satu sumber data dengan PDF cetak (RaporDataLoader) supaya layout konsisten.
+        $data = (new \App\Libraries\RaporDataLoader())->load((int) $id_siswa, (int) $id_tahun_ajaran);
+        if (isset($data['error'])) {
+            return redirect()->to(base_url('orangtua/dashboard'))->with('error', $data['error']);
         }
 
-        if (!$tahunAjaran) {
-            return redirect()->back()->with('error', 'Data tahun ajaran tidak ditemukan');
-        }
-
-        // Check if semester is locked
-        if ($tahunAjaran['status_pengisian'] !== 'Kunci') {
-            // FIX BUG-04: Redirect to dashboard with clear message instead of back()
-            return redirect()->to(base_url('orangtua/dashboard'))
-                ->with('info', 'Rapor belum tersedia. Semester masih dalam proses pengisian nilai.');
-        }
-
-        $rapor = $raporModel->getFinalizedReport((int) $id_siswa, (int) $id_tahun_ajaran);
-
-        if (!$rapor) {
+        // Gate visibilitas e-rapor = rapor.is_finalized (Pek 9). status_pengisian
+        // hanya mengunci INPUT nilai guru, bukan visibilitas rapor — jadi rapor
+        // yang sudah difinalisasi tetap bisa dilihat walau semester masih 'Buka'.
+        if (empty($data['rapor']) || (int) ($data['rapor']['is_finalized'] ?? 0) !== 1) {
             return redirect()->to(base_url('orangtua/grades/' . $id_siswa))
                 ->with('info', 'Rapor belum difinalisasi oleh admin/wali kelas.');
         }
 
-        // Get all final grades
-        $nilaiAkhir = $nilaiAkhirModel->select('nilai_akhir.*, mata_pelajaran.nama_mapel, mata_pelajaran.kelompok, kkm.nilai_kkm')
-            ->join('mata_pelajaran', 'mata_pelajaran.id_mapel = nilai_akhir.id_mapel')
-            ->join('mapel_kelas', 'mapel_kelas.id_mapel = nilai_akhir.id_mapel AND mapel_kelas.id_kelas = ' . (int) $siswa['id_kelas'])
-            ->join('kkm', 'kkm.id_mapel = nilai_akhir.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . (int) $id_tahun_ajaran, 'left')
-            ->where('nilai_akhir.id_siswa', $id_siswa)
-            ->where('nilai_akhir.id_tahun_ajaran', $id_tahun_ajaran)
-            ->orderBy('mata_pelajaran.kelompok', 'ASC')
-            ->orderBy('mata_pelajaran.nama_mapel', 'ASC')
-            ->findAll();
-
-        $data = [
-            'title' => 'E-Rapor - ' . $siswa['nama_siswa'],
-            'siswa' => $siswa,
-            'tahun_ajaran' => $tahunAjaran,
-            'rapor' => $rapor,
-            'nilai_akhir' => $nilaiAkhir
-        ];
-
+        $data['title'] = 'E-Rapor - ' . $data['siswa']['nama_siswa'];
         return view('orangtua/rapor/view', $data);
     }
 }

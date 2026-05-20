@@ -3,16 +3,8 @@
 namespace App\Controllers\OrangTua;
 
 use App\Controllers\BaseController;
-use App\Libraries\RaporNarrativeService;
-use App\Models\KelasModel;
-use App\Models\KokurikulerTemaModel;
-use App\Models\NilaiAkhirModel;
-use App\Models\NilaiCapaianKompetensiModel;
-use App\Models\RaporModel;
-use App\Models\SiswaEkstrakurikulerModel;
-use App\Models\SiswaKokurikulerDimensiModel;
+use App\Libraries\RaporDataLoader;
 use App\Models\SiswaModel;
-use App\Models\TahunAjaranModel;
 use TCPDF;
 
 /**
@@ -28,25 +20,6 @@ use TCPDF;
  */
 class Rapor extends BaseController
 {
-    // Konstanta identitas sekolah (Pek 1.1) - dipakai sebagai konstanta PDF
-    private const KEPSEK_NAMA = 'Ni Wayan Kasrinayanti, S. Pd.';
-    private const KEPSEK_NIP  = '198408132014062008';
-    private const SEKOLAH     = 'SD NEGERI 3 MEKARSARI';
-
-    // Mapping NIP guru per username (sumber: SD3_GuruSeeder)
-    private const NIP_GURU = [
-        'kasrinayanti'  => '198408132014062008',
-        'nengahsarini'  => '196803301994032007',
-        'bayukarsana'   => '198911082022211011',
-        'raipitriani'   => '197710202021212001',
-        'suarjana'      => '197407072023211004',
-        'ariwidnya'     => '198508112022211007',
-        'damayanti'     => '199008152022212006',
-        'madhavi'       => '199308222024212027',
-        'siskadewi'     => '',
-        'desiwulandari' => '199312022025212013',
-    ];
-
     public function downloadPDF($idSiswa, $idTahunAjaran)
     {
         $idSiswa = (int) $idSiswa;
@@ -60,7 +33,7 @@ class Rapor extends BaseController
             return redirect()->to(base_url('orangtua/dashboard'))->with('error', 'Akses ditolak.');
         }
 
-        $data = $this->loadRaporData($idSiswa, $idTa);
+        $data = (new RaporDataLoader())->load($idSiswa, $idTa);
         if (isset($data['error'])) {
             return redirect()->back()->with('error', $data['error']);
         }
@@ -82,7 +55,6 @@ class Rapor extends BaseController
         $pdf->setFooterFont(['courier', 'I', 8]);
         $pdf->setFooterData([0, 0, 0], [255, 255, 255]);
         $pdf->setFooterMargin(10);
-        $pdf->setPageMark();
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetAutoPageBreak(true, 18);
 
@@ -114,89 +86,6 @@ class Rapor extends BaseController
         $pdf->Output(str_replace('/', '_', $filename), 'D');
     }
 
-    // ─── Data loader ──────────────────────────────────────────────────────────
-
-    private function loadRaporData(int $idSiswa, int $idTa): array
-    {
-        $siswaModel = new SiswaModel();
-        $kelasModel = new KelasModel();
-        $taModel = new TahunAjaranModel();
-        $raporModel = new RaporModel();
-        $nilaiAkhirModel = new NilaiAkhirModel();
-        $nilaiCpModel = new NilaiCapaianKompetensiModel();
-        $temaModel = new KokurikulerTemaModel();
-        $siswaEkskulModel = new SiswaEkstrakurikulerModel();
-        $siswaKokoModel = new SiswaKokurikulerDimensiModel();
-
-        $siswa = $siswaModel->find($idSiswa);
-        if (!$siswa) return ['error' => 'Data siswa tidak ditemukan.'];
-
-        $kelas = $kelasModel->find($siswa['id_kelas']);
-        $ta    = $taModel->find($idTa);
-        if (!$ta) return ['error' => 'Data tahun ajaran tidak ditemukan.'];
-
-        $rapor = $raporModel->where('id_siswa', $idSiswa)
-            ->where('id_tahun_ajaran', $idTa)
-            ->first();
-
-        // Wali kelas
-        $waliKelas = null;
-        if ($kelas && !empty($kelas['wali_kelas'])) {
-            $waliKelas = \Config\Database::connect()->table('users')
-                ->where('id_user', $kelas['wali_kelas'])->get()->getRowArray();
-        }
-
-        // Mapel + nilai_akhir + CP narasi
-        $nilaiRows = $nilaiAkhirModel->select('nilai_akhir.*, mata_pelajaran.nama_mapel, mata_pelajaran.kode_mapel')
-            ->join('mata_pelajaran', 'mata_pelajaran.id_mapel = nilai_akhir.id_mapel')
-            ->where('nilai_akhir.id_siswa', $idSiswa)
-            ->where('nilai_akhir.id_tahun_ajaran', $idTa)
-            ->orderBy('mata_pelajaran.id_mapel', 'ASC')
-            ->findAll();
-
-        $narrative = new RaporNarrativeService();
-        $mapelData = ['wajib' => [], 'pilihan' => []];
-        foreach ($nilaiRows as $row) {
-            $cpList = $nilaiCpModel->listWithDeskripsi((int) $row['id_nilai_akhir']);
-            $row['capaian_narasi'] = $narrative->generateNarasiCP($cpList);
-            // Bahasa Bali (kode BBALI) = pilihan; sisanya = wajib
-            $isPilihan = strtoupper((string) ($row['kode_mapel'] ?? '')) === 'BBALI';
-            $mapelData[$isPilihan ? 'pilihan' : 'wajib'][] = $row;
-        }
-
-        // Kokurikuler
-        $tema = $kelas ? $temaModel->findForKelasTa((int) $kelas['id_kelas'], $idTa) : null;
-        $kokoNarasi = '';
-        if ($tema) {
-            $dimensi = $siswaKokoModel->findForSiswaTema($idSiswa, (int) $tema['id_tema']);
-            $kokoNarasi = $narrative->generateNarasiKokurikuler($tema['nama_tema'], $dimensi);
-        }
-
-        // Ekstrakurikuler
-        $ekskul = $siswaEkskulModel->findForSiswaTa($idSiswa, $idTa);
-
-        // Fase (dari tingkat kelas)
-        $tingkat = (int) ($kelas['tingkat'] ?? 0);
-        $fase = match (true) {
-            $tingkat <= 2 => 'A',
-            $tingkat <= 4 => 'B',
-            default       => 'C',
-        };
-
-        return [
-            'siswa'        => $siswa,
-            'kelas'        => $kelas,
-            'tahun_ajaran' => $ta,
-            'rapor'        => $rapor,
-            'wali_kelas'   => $waliKelas,
-            'mapel'        => $mapelData,
-            'fase'         => $fase,
-            'koko_narasi'  => $kokoNarasi,
-            'tema'         => $tema,
-            'ekskul'       => $ekskul,
-        ];
-    }
-
     // ─── Renderers ────────────────────────────────────────────────────────────
 
     private function renderHeader(array $d, bool $compact = false): string
@@ -210,7 +99,7 @@ class Rapor extends BaseController
         $rows = [
             ['Nama Murid', $s['nama_siswa'] ?? '-',           'Kelas',        $k['nama_kelas'] ?? '-'],
             ['NIS/NISN',   ($s['nis'] ?? '-') . ' / ' . ($s['nisn'] ?? '-'), 'Fase', $d['fase']],
-            ['Sekolah',    self::SEKOLAH,                     'Semester',     $semesterNum],
+            ['Sekolah',    $d['sekolah'],                     'Semester',     $semesterNum],
             ['Alamat',     $alamat,                           'Tahun Ajaran', $ta['tahun_ajaran'] ?? '-'],
         ];
 
@@ -219,7 +108,7 @@ class Rapor extends BaseController
             $rows = [
                 ['Nama Murid', $s['nama_siswa'] ?? '-',           'Kelas',        $k['nama_kelas'] ?? '-'],
                 ['NIS/NISN',   ($s['nis'] ?? '-') . ' / ' . ($s['nisn'] ?? '-'), 'Semester', $semesterNum],
-                ['Sekolah',    self::SEKOLAH,                     'Tahun Ajaran', $ta['tahun_ajaran'] ?? '-'],
+                ['Sekolah',    $d['sekolah'],                     'Tahun Ajaran', $ta['tahun_ajaran'] ?? '-'],
                 ['Alamat',     $alamat,                           '',             ''],
             ];
         }
@@ -351,19 +240,14 @@ class Rapor extends BaseController
 
     private function renderTandaTangan(array $d): string
     {
-        $narrative = new RaporNarrativeService();
-        $tanggal = $narrative->tanggalIndonesia();
-
         $waliNama = $d['wali_kelas']['nama_lengkap'] ?? '-';
-        $waliUsername = $d['wali_kelas']['username'] ?? '';
-        $waliNip = self::NIP_GURU[$waliUsername] ?? '-';
 
         return '<br><br>'
              . '<table style="width:100%;font-size:10px;">'
              . '<tr>'
              . '<td width="33%"></td>'
              . '<td width="33%"></td>'
-             . '<td width="33%" style="text-align:center;">Tabanan, ' . esc($tanggal) . '</td>'
+             . '<td width="33%" style="text-align:center;">Tabanan, ' . esc($d['tanggal_indo']) . '</td>'
              . '</tr>'
              . '<tr>'
              . '<td style="text-align:center;">Orang Tua Murid</td>'
@@ -373,13 +257,13 @@ class Rapor extends BaseController
              . '<tr><td colspan="3" style="height:60px;"></td></tr>'
              . '<tr style="font-weight:bold;text-decoration:underline;">'
              . '<td style="text-align:center;">......................................</td>'
-             . '<td style="text-align:center;">' . esc(self::KEPSEK_NAMA) . '</td>'
+             . '<td style="text-align:center;">' . esc($d['kepsek_nama']) . '</td>'
              . '<td style="text-align:center;">' . esc($waliNama) . '</td>'
              . '</tr>'
              . '<tr style="font-size:9px;">'
              . '<td></td>'
-             . '<td style="text-align:center;">NIP. ' . esc(self::KEPSEK_NIP) . '</td>'
-             . '<td style="text-align:center;">NIP. ' . esc($waliNip) . '</td>'
+             . '<td style="text-align:center;">NIP. ' . esc($d['kepsek_nip']) . '</td>'
+             . '<td style="text-align:center;">NIP. ' . esc($d['wali_nip']) . '</td>'
              . '</tr>'
              . '</table>';
     }
