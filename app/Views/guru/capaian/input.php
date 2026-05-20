@@ -23,6 +23,18 @@
     </a>
 </div>
 
+<?= view('partials/info_banner', [
+    'judul'   => 'Cara Mengisi Capaian Kompetensi',
+    'langkah' => [
+        'Untuk tiap Capaian Pembelajaran, pilih status: <strong>Tercapai Sangat Baik</strong>, <strong>Perlu Peningkatan</strong>, atau <strong>Belum Dinilai</strong> (default, tidak muncul di rapor).',
+        'Status "Tercapai Sangat Baik" masuk kalimat <em>"Mencapai Kompetensi dengan sangat baik dalam hal…"</em>; "Perlu Peningkatan" masuk <em>"Perlu peningkatan dalam hal…"</em>.',
+        'Lihat <strong>Preview Narasi</strong> yang ter-update otomatis saat Anda memilih status.',
+        'Klik <strong>+ Tambah CP Custom</strong> bila ada capaian yang belum terdaftar.',
+        'Klik <strong>Simpan</strong> bila narasi sudah sesuai.',
+    ],
+    'tips'    => 'Narasi rapor disusun otomatis dari status CP — Anda tidak perlu mengetik manual.',
+]) ?>
+
 <?php if (session()->getFlashdata('success')): ?>
     <div class="alert alert-success"><i class="bi bi-check-circle me-2"></i><?= esc(session()->getFlashdata('success')) ?></div>
 <?php endif; ?>

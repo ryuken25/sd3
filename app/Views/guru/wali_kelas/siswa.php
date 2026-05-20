@@ -38,6 +38,17 @@ $namaPanggilan = explode(' ', trim((string) $siswa['nama_siswa']))[0];
     <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i><?= esc(session()->getFlashdata('error')) ?></div>
 <?php endif; ?>
 
+<?= view('partials/info_banner', [
+    'judul'   => 'Cara Mengisi Data Wali Kelas (Catatan, Ketidakhadiran, Ekskul, Kokurikuler)',
+    'langkah' => [
+        '<strong>Catatan</strong>: pilih template (opsional) lalu edit. Placeholder {nama_panggilan} diganti otomatis. Wajib diisi minimal 10 karakter.',
+        '<strong>Ketidakhadiran</strong>: isi jumlah hari Sakit / Izin / Tanpa Keterangan (default 0).',
+        '<strong>Ekstrakurikuler</strong>: centang ekskul yang diikuti siswa, isi/teruskan keterangan default.',
+        '<strong>Kokurikuler P5</strong>: untuk 7 dimensi Pancasila, isi subdimensi + level (Berkembang/Cakap/Mahir/Sangat Mahir).',
+    ],
+    'tips'    => 'Narasi kokurikuler disusun otomatis dari dimensi yang diisi.',
+]) ?>
+
 <ul class="nav nav-tabs mb-3" role="tablist">
     <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-catatan">Catatan</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ketidakhadiran">Ketidakhadiran</a></li>

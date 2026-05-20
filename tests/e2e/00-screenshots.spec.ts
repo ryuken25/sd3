@@ -38,4 +38,11 @@ test.describe('Screenshot dokumentasi /hasil', () => {
     await page.waitForLoadState('networkidle');
     await page.screenshot({ path: `${HASIL}/04-dashboard-ortu.png`, fullPage: true });
   });
+
+  test('halaman panduan in-app (/help/panduan-rapor)', async ({ page }) => {
+    await login(page, 'guruKelas3');
+    await page.goto('/help/panduan-rapor');
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: `${HASIL}/05-help-panduan-rapor.png`, fullPage: true });
+  });
 });

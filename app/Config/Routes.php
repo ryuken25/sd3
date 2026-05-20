@@ -9,6 +9,11 @@ $routes->get('/', 'Auth::index');
 $routes->post('auth/process', 'Auth::process');
 $routes->get('logout', 'Auth::logout');
 
+// Halaman bantuan/panduan in-app — semua role yang sudah login.
+$routes->group('help', ['filter' => 'auth'], static function ($routes) {
+    $routes->get('panduan-rapor', 'Help::panduanRapor');
+});
+
 // Admin Routes
 $routes->group('admin', ['filter' => ['auth', 'role:admin']], static function ($routes) {
     $routes->get('dashboard', 'Admin\Dashboard::index');
