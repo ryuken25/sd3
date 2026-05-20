@@ -1,0 +1,29 @@
+{
+  "name": "sd3qwen",
+  "version": "1.0.0",
+  "description": "Aplikasi web manajemen nilai siswa berbasis CodeIgniter 4 untuk SDN 3 Mekarsari. Aplikasi ini mencakup autentikasi multi-role, pengelolaan tahun ajaran, kelas, siswa, guru, mata pelajaran, KKM, input nilai, remedial, rapor, dan dashboard orang tua.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryuken25/sd3.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ryuken25/sd3/issues"
+  },
+  "homepage": "https://github.com/ryuken25/sd3#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "pdf-parse": "^2.4.5"
+  }
+}

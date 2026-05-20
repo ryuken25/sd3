@@ -69,6 +69,7 @@ $routes->group('admin', ['filter' => ['auth', 'role:admin']], static function ($
     // Rapor Management
     $routes->get('rapor', 'Admin\Rapor::index');
     $routes->get('rapor/detail/(:num)/(:num)', 'Admin\Rapor::detail/$1/$2');
+    $routes->get('rapor/preview/(:num)/(:num)', 'Admin\Rapor::preview/$1/$2');
     $routes->post('rapor/store', 'Admin\Rapor::store');
     $routes->post('rapor/update/(:num)', 'Admin\Rapor::update/$1');
     $routes->post('rapor/unfinalize/(:num)', 'Admin\Rapor::unfinalize/$1');

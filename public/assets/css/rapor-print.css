@@ -1,0 +1,126 @@
+/* ===========================================================================
+ * rapor-print.css — styling lembar rapor untuk PDF cetak (Dompdf).
+ * Di-inline ke app/Views/rapor/cetak.php karena Dompdf paling andal membaca
+ * CSS inline. File ini juga jadi rujukan/dokumentasi gaya cetak.
+ *
+ * Target: A4, grayscale, match Rapor_Kelas3.pdf / Rapor_Kelas6.pdf.
+ * ======================================================================== */
+
+@page {
+    margin: 2cm;
+}
+
+body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 11pt;
+    color: #000;
+    margin: 0;
+}
+
+.rapor-container {
+    width: 100%;
+}
+
+/* Header identitas */
+.rapor-header-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4px;
+}
+
+.rapor-header-tbl td {
+    padding: 1px 3px;
+    font-size: 11pt;
+    vertical-align: top;
+}
+
+.rapor-title {
+    text-align: center;
+    font-weight: bold;
+    font-size: 14pt;
+    margin: 12px 0;
+}
+
+/* Tabel */
+.rapor-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+}
+
+.rapor-tbl th,
+.rapor-tbl td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    vertical-align: top;
+    font-size: 10pt;
+}
+
+.rapor-tbl thead th {
+    background: #e5e5e5;
+    text-align: center;
+    font-weight: bold;
+}
+
+.rapor-row-group td {
+    background: #f0f0f0;
+    font-weight: bold;
+}
+
+/* Section head & box */
+.rapor-section-head {
+    background: #e5e5e5;
+    border: 1px solid #000;
+    text-align: center;
+    font-weight: bold;
+    padding: 5px;
+    font-size: 10pt;
+}
+
+.rapor-box {
+    border: 1px solid #000;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    font-size: 10pt;
+}
+
+.rapor-2col {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+}
+
+/* Tanda tangan */
+.rapor-ttd {
+    width: 100%;
+    margin-top: 24px;
+}
+
+.rapor-ttd td {
+    text-align: center;
+    padding: 2px 4px;
+    width: 33.33%;
+    font-size: 10pt;
+}
+
+.rapor-ttd tr.ttd-space td {
+    height: 56px;
+}
+
+.rapor-ttd tr.ttd-name td {
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+.rapor-ttd tr.ttd-nip td {
+    font-size: 9pt;
+}
+
+/* Badge online TIDAK pernah tampil di PDF. */
+.rapor-online-only {
+    display: none !important;
+}
+
+.page-break {
+    page-break-after: always;
+}

@@ -301,6 +301,12 @@
                                      data-status="<?= $r['status_kenaikan'] ?? '' ?>">
                                     <i class="bi bi-file-earmark-text me-1"></i>Detail/Edit
                                  </button>
+                                 <?php if (!empty($filter_ta)): ?>
+                                 <a href="<?= base_url('admin/rapor/preview/' . $r['id_siswa'] . '/' . $filter_ta) ?>"
+                                     class="btn btn-sm btn-outline-info">
+                                     <i class="bi bi-eye me-1"></i>Lihat Rapor Lengkap
+                                 </a>
+                                 <?php endif; ?>
                                 <?php if (!empty($r['is_finalized']) && !empty($r['id_rapor'])): ?>
                                     <form action="<?= base_url('admin/rapor/unfinalize/' . $r['id_rapor']) ?>" method="post" class="d-inline">
                                         <?= csrf_field() ?>

@@ -16,6 +16,8 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
+    // Override via env var `app.baseURL` (.env atau process env) — mis. saat
+    // dev di port lain / Playwright E2E memakai port 8089.
     public string $baseURL = 'http://localhost:8080/';
 
     /**

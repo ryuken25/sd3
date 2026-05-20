@@ -36,6 +36,15 @@ builds/
 /builds
 dist/
 __pycache__/
+
+# Playwright E2E artifacts (test code di tests/e2e/ TETAP di-commit)
+/playwright-report/
+/test-results/
+/tests/e2e/**/*-snapshots/
+.last-run.json
+
+# Screenshot dokumentasi (regenerable via `npx playwright test 00-screenshots`)
+/hasil/
 *.pyc
 *.pyo
 
@@ -93,13 +102,17 @@ tools/
 /*.txt
 /public/check.php
 /public/setup_dummy.php
-tests/
+tests/*
+!tests/e2e/
 
 # Keep core CodeIgniter entry files and config/docs
 !spark
 !preload.php
 !composer.json
 !composer.lock
+!package.json
+!package-lock.json
+!playwright.config.ts
 !README.md
 !LICENSE
 !.env

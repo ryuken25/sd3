@@ -1,0 +1,154 @@
+/* ===========================================================================
+ * rapor-screen.css — styling lembar rapor untuk tampilan web (admin & orang tua).
+ * Dipakai oleh shared partial app/Views/rapor/_full_layout.php.
+ * Versi cetak/PDF memakai inline CSS di app/Views/rapor/cetak.php.
+ * ======================================================================== */
+
+.rapor-container {
+    background: #fff;
+    max-width: 920px;
+    margin: 0 auto;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13px;
+    color: #222;
+}
+
+/* ── Header identitas siswa ───────────────────────────────────────────── */
+.rapor-header-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+}
+
+.rapor-header-tbl td {
+    padding: 2px 4px;
+    font-size: 13px;
+    vertical-align: top;
+}
+
+.rapor-header-tbl td.lbl {
+    width: 13%;
+}
+
+.rapor-header-tbl td.sep {
+    width: 2%;
+}
+
+.rapor-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: .5px;
+    margin: 16px 0;
+}
+
+/* ── Tabel (mapel, ekskul, ketidakhadiran) ────────────────────────────── */
+.rapor-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px;
+}
+
+.rapor-tbl th,
+.rapor-tbl td {
+    border: 1px solid #555;
+    padding: 6px 8px;
+    vertical-align: top;
+}
+
+.rapor-tbl thead th {
+    background: #e8eef5;
+    text-align: center;
+    font-weight: 700;
+}
+
+.rapor-row-group td {
+    background: #f4f4f4;
+    font-weight: 700;
+}
+
+/* ── Section header & box (kokurikuler, catatan, tanggapan) ───────────── */
+.rapor-section-head {
+    background: #e8eef5;
+    border: 1px solid #555;
+    text-align: center;
+    font-weight: 700;
+    padding: 6px;
+}
+
+.rapor-box {
+    border: 1px solid #555;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+}
+
+.rapor-2col {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px;
+}
+
+/* ── Tanda tangan ─────────────────────────────────────────────────────── */
+.rapor-ttd {
+    width: 100%;
+    margin-top: 28px;
+}
+
+.rapor-ttd td {
+    text-align: center;
+    padding: 2px 4px;
+    width: 33.33%;
+}
+
+.rapor-ttd tr.ttd-space td {
+    height: 64px;
+}
+
+.rapor-ttd tr.ttd-name td {
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.rapor-ttd tr.ttd-nip td {
+    font-size: 11px;
+}
+
+/* ── Badge "Catatan dari guru" — hanya tampil online ──────────────────── */
+.rapor-badge-catatan {
+    display: inline-block;
+    background: #cfe8f5;
+    color: #1a3c4d;
+    font-weight: 400;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.rapor-badge-catatan::-webkit-details-marker {
+    display: none;
+}
+
+.rapor-badge-isi {
+    font-size: 12px;
+    color: #555;
+    font-style: italic;
+    margin-top: 4px;
+    padding: 6px 8px;
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: left;
+}
+
+/* Saat browser print (Ctrl+P), badge & elemen online disembunyikan. */
+@media print {
+    .rapor-online-only {
+        display: none !important;
+    }
+
+    .rapor-container {
+        max-width: 100%;
+    }
+}

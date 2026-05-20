@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Libraries\AttendanceWorkbookParser;
+use App\Libraries\RaporDataLoader;
 use App\Models\RaporModel;
 use App\Models\SiswaModel;
 use App\Models\TahunAjaranModel;
@@ -338,6 +339,25 @@ class Rapor extends BaseController
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Halaman detail rapor admin — render layout LENGKAP (8 section sesuai PDF)
+     * via shared partial rapor/_full_layout, sama dengan e-rapor orang tua.
+     * Beda hanya: ada bar aksi admin (finalisasi/batalkan) + badge online.
+     */
+    public function preview($id_siswa, $id_tahun_ajaran)
+    {
+        $idSiswa = (int) $id_siswa;
+        $idTa    = (int) $id_tahun_ajaran;
+
+        $data = (new RaporDataLoader())->load($idSiswa, $idTa);
+        if (isset($data['error'])) {
+            return redirect()->to(base_url('admin/rapor'))->with('error', $data['error']);
+        }
+
+        $data['title'] = 'Detail Rapor - ' . ($data['siswa']['nama_siswa'] ?? '');
+        return view('admin/rapor/detail', $data);
     }
 
     public function importAttendance()
