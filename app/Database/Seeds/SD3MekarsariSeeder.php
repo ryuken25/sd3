@@ -36,6 +36,7 @@ class SD3MekarsariSeeder extends Seeder
         $this->call(SD3_DimensiPancasilaSeeder::class);
         $this->call(SD3_KokurikulerTemaSeeder::class);
         $this->call(SD3_CapaianPembelajaranSeeder::class);
+        $this->call(SD3_CapaianBandSeeder::class);
 
         // Isi rapor per-siswa (CP/ekskul/koko) + finalisasi kelas 3 & 6 TA aktif
         $this->call(SD3_RaporIsiSeeder::class);

@@ -89,9 +89,10 @@ class CapaianKompetensi extends BaseController
             ->orderBy('nama_siswa', 'ASC')
             ->findAll();
 
-        $masterCp = $masterCpModel->findForMapel($idMapel, $fase, $ta['semester']);
+        // Peta narasi template per band predikat (A/B/C/D) untuk mapel+fase+semester ini.
+        $bandMap = $masterCpModel->getBandMap($idMapel, $fase, $ta['semester']);
 
-        // Untuk tiap siswa: ambil id_nilai_akhir + existing CP entries (master + custom)
+        // Untuk tiap siswa: id_nilai_akhir, narasi_cp existing, band dari nilai_huruf.
         $perSiswa = [];
         foreach ($siswa as $s) {
             $na = $nilaiAkhirModel->where('id_siswa', $s['id_siswa'])
@@ -99,23 +100,19 @@ class CapaianKompetensi extends BaseController
                 ->where('id_tahun_ajaran', $idTa)
                 ->first();
 
-            $existing = $na ? $nilaiCpModel->findForNilaiAkhir((int) $na['id_nilai_akhir']) : [];
-            $byMaster = [];
-            $custom   = [];
-            foreach ($existing as $e) {
-                if (!empty($e['master_cp_id'])) {
-                    $byMaster[(int) $e['master_cp_id']] = $e;
-                } else {
-                    $custom[] = $e;
-                }
-            }
+            // Mapping huruf → band: A→A, B→B, C→C, D→D, E→D, lainnya kosong.
+            $huruf = strtoupper((string) ($na['nilai_huruf'] ?? ''));
+            $band  = match ($huruf) {
+                'A' => 'A', 'B' => 'B', 'C' => 'C', 'D', 'E' => 'D',
+                default => '',
+            };
 
             $perSiswa[$s['id_siswa']] = [
                 'siswa'          => $s,
                 'id_nilai_akhir' => $na['id_nilai_akhir'] ?? null,
                 'nilai_akhir'    => $na['nilai_akhir'] ?? null,
-                'by_master'      => $byMaster,
-                'custom'         => $custom,
+                'band'           => $band,
+                'narasi_cp'      => $na['narasi_cp'] ?? '',
             ];
         }
 
@@ -125,7 +122,7 @@ class CapaianKompetensi extends BaseController
             'mapel'           => $mapel,
             'tahun_ajaran'    => $ta,
             'fase'            => $fase,
-            'master_cp'       => $masterCp,
+            'band_map'        => $bandMap,
             'per_siswa'       => $perSiswa,
             'id_kelas'        => $idKelas,
             'id_mapel'        => $idMapel,
@@ -134,18 +131,17 @@ class CapaianKompetensi extends BaseController
     }
 
     /**
-     * POST body:
-     *   cp[id_nilai_akhir][master][id_master_cp] = 'tercapai_sangat_baik'|'perlu_peningkatan'|'belum'
-     *   cp[id_nilai_akhir][custom][] = ['deskripsi' => ..., 'status' => ...]
+     * Simpan narasi capaian manual per siswa verbatim ke nilai_akhir.narasi_cp.
+     * POST body: narasi[id_nilai_akhir] = "teks final" (boleh hasil prefill band, sudah diedit).
      */
     public function save()
     {
-        $data = $this->request->getPost('cp');
+        $narasi  = $this->request->getPost('narasi');
         $idTa    = (int) $this->request->getPost('id_tahun_ajaran');
         $idKelas = (int) $this->request->getPost('id_kelas');
         $idMapel = (int) $this->request->getPost('id_mapel');
 
-        if (!$data || !\is_array($data)) {
+        if (!$narasi || !\is_array($narasi)) {
             return redirect()->back()->with('error', 'Data tidak valid.');
         }
 
@@ -156,51 +152,23 @@ class CapaianKompetensi extends BaseController
             return $response;
         }
 
-        $nilaiCpModel = new NilaiCapaianKompetensiModel();
+        $nilaiAkhirModel = new NilaiAkhirModel();
         $db = \Config\Database::connect();
         $db->transStart();
 
         try {
-            foreach ($data as $idNilaiAkhir => $entries) {
+            foreach ($narasi as $idNilaiAkhir => $teks) {
                 $idNilaiAkhir = (int) $idNilaiAkhir;
-                if ($idNilaiAkhir <= 0) continue;
-
-                // Reset existing rows untuk nilai_akhir ini, insert ulang
-                $nilaiCpModel->where('id_nilai_akhir', $idNilaiAkhir)->delete();
-
-                // Master CP entries
-                foreach (($entries['master'] ?? []) as $idMasterCp => $status) {
-                    $idMasterCp = (int) $idMasterCp;
-                    if ($status !== 'tercapai_sangat_baik' && $status !== 'perlu_peningkatan') {
-                        continue; // skip "belum"
-                    }
-                    $nilaiCpModel->insert([
-                        'id_nilai_akhir'   => $idNilaiAkhir,
-                        'master_cp_id'     => $idMasterCp,
-                        'deskripsi_custom' => null,
-                        'status'           => $status,
-                    ]);
+                if ($idNilaiAkhir <= 0) {
+                    continue;
                 }
-
-                // Custom CP entries
-                foreach (($entries['custom'] ?? []) as $cust) {
-                    $desc   = trim((string) ($cust['deskripsi'] ?? ''));
-                    $status = (string) ($cust['status'] ?? '');
-                    if ($desc === '' || ($status !== 'tercapai_sangat_baik' && $status !== 'perlu_peningkatan')) {
-                        continue;
-                    }
-                    $nilaiCpModel->insert([
-                        'id_nilai_akhir'   => $idNilaiAkhir,
-                        'master_cp_id'     => null,
-                        'deskripsi_custom' => $desc,
-                        'status'           => $status,
-                    ]);
-                }
+                $teks = trim((string) $teks);
+                $nilaiAkhirModel->update($idNilaiAkhir, ['narasi_cp' => $teks !== '' ? $teks : null]);
             }
 
             $db->transComplete();
             if ($db->transStatus() === false) {
-                return redirect()->back()->with('error', 'Gagal menyimpan CP. Coba lagi.');
+                return redirect()->back()->with('error', 'Gagal menyimpan narasi capaian. Coba lagi.');
             }
 
             return redirect()->back()->with('success', 'Capaian Kompetensi berhasil disimpan.');

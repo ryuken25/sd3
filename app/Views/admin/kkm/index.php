@@ -41,7 +41,6 @@
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <div class="form-text">Default tampil TA yang sedang <strong>aktif</strong>. Pilih TA lain untuk melihat KKM lama.</div>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Kelas</label>
@@ -57,6 +56,9 @@
             <div class="col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary flex-fill"><i class="bi bi-search me-1"></i>Tampilkan</button>
                 <a href="<?= base_url('admin/kkm') ?>" class="btn btn-outline-secondary">Reset</a>
+            </div>
+            <div class="col-12">
+                <div class="form-text mt-0">Default tampil TA yang sedang <strong>aktif</strong>. Pilih TA lain untuk melihat KKM lama.</div>
             </div>
         </form>
     </div>

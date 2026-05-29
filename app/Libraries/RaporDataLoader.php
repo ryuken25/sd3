@@ -98,17 +98,25 @@ class RaporDataLoader
         $narrative = new RaporNarrativeService();
         $mapelData = ['wajib' => [], 'pilihan' => []];
         foreach ($nilaiRows as $row) {
-            $cpList = $nilaiCpModel->listWithDeskripsi((int) $row['id_nilai_akhir']);
-            $row['capaian_narasi'] = $narrative->generateNarasiCP($cpList);
+            // Pakai narasi manual (nilai_akhir.narasi_cp) bila ada; kalau kosong
+            // fallback ke narasi auto-rakit dari nilai_capaian_kompetensi lama.
+            $manual = trim((string) ($row['narasi_cp'] ?? ''));
+            $row['capaian_narasi'] = $manual !== ''
+                ? $row['narasi_cp']
+                : $narrative->generateNarasiCP($nilaiCpModel->listWithDeskripsi((int) $row['id_nilai_akhir']));
             // Bahasa Bali (kode BBALI) = mapel pilihan; sisanya = wajib
             $isPilihan = strtoupper((string) ($row['kode_mapel'] ?? '')) === 'BBALI';
             $mapelData[$isPilihan ? 'pilihan' : 'wajib'][] = $row;
         }
 
-        // Kokurikuler (narasi auto-gen dari tema + dimensi P5)
+        // Kokurikuler: pakai narasi manual (rapor.narasi_koko) bila ada; kalau
+        // kosong fallback ke auto-gen dari tema + dimensi P5.
         $tema = $kelas ? $temaModel->findForKelasTa((int) $kelas['id_kelas'], $idTa) : null;
         $kokoNarasi = '';
-        if ($tema) {
+        $manualKoko = trim((string) ($rapor['narasi_koko'] ?? ''));
+        if ($manualKoko !== '') {
+            $kokoNarasi = $rapor['narasi_koko'];
+        } elseif ($tema) {
             $dimensi = $siswaKokoModel->findForSiswaTema($idSiswa, (int) $tema['id_tema']);
             $kokoNarasi = $narrative->generateNarasiKokurikuler($tema['nama_tema'], $dimensi);
         }

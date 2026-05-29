@@ -8,13 +8,17 @@ class MasterEkstrakurikulerModel extends Model
 {
     protected $table         = 'master_ekstrakurikuler';
     protected $primaryKey    = 'id_ekskul';
-    protected $allowedFields = ['nama', 'deskripsi_default', 'aktif'];
+    protected $allowedFields = ['nama', 'deskripsi_default', 'aktif', 'wajib'];
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
 
     public function findActive(): array
     {
-        return $this->where('aktif', 1)->orderBy('id_ekskul', 'ASC')->findAll();
+        // Ekskul wajib di urutan atas, lalu sisanya.
+        return $this->where('aktif', 1)
+            ->orderBy('wajib', 'DESC')
+            ->orderBy('id_ekskul', 'ASC')
+            ->findAll();
     }
 }

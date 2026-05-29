@@ -15,6 +15,7 @@ class RaporModel extends Model
         'izin',
         'alpa',
         'catatan_wali_kelas',
+        'narasi_koko',
         'status_kenaikan',
         'is_finalized',
         'finalized_at',

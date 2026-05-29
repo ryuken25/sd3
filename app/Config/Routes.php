@@ -125,6 +125,10 @@ $routes->group('guru', ['filter' => ['auth', 'role:guru']], static function ($ro
     $routes->get('capaian-kompetensi/input', 'Guru\CapaianKompetensi::input');
     $routes->post('capaian-kompetensi/save', 'Guru\CapaianKompetensi::save');
 
+    // Kelola Template Capaian (4 band predikat A/B/C/D per mapel+fase+semester)
+    $routes->get('template-capaian', 'Guru\TemplateCapaian::index');
+    $routes->post('template-capaian/save-bands', 'Guru\TemplateCapaian::saveBands');
+
     // Request Buka Nilai
     $routes->get('request-buka-nilai', 'Guru\RequestBukaNilai::index');
     $routes->post('request-buka-nilai/store', 'Guru\RequestBukaNilai::store');

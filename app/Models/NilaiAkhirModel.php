@@ -10,7 +10,7 @@ class NilaiAkhirModel extends Model
     protected $primaryKey = 'id_nilai_akhir';
     protected $allowedFields = [
         'id_siswa', 'id_mapel', 'id_tahun_ajaran',
-        'nilai_akhir', 'nilai_huruf', 'status_kelulusan'
+        'nilai_akhir', 'nilai_huruf', 'status_kelulusan', 'narasi_cp'
     ];
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';

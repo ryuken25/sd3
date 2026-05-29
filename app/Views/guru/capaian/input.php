@@ -4,7 +4,10 @@
 <div class="sidebar-heading">Menu Utama</div>
 <a href="<?= base_url('guru/dashboard') ?>"><i class="bi bi-speedometer2 me-2"></i> Dashboard</a>
 <div class="sidebar-heading mt-3">Input Nilai</div>
+<a href="<?= base_url('guru/penilaian-agregat') ?>"><i class="bi bi-files me-2"></i> Penilaian Agregat</a>
 <a href="<?= base_url('guru/capaian-kompetensi') ?>" class="active"><i class="bi bi-bookmark-check me-2"></i> Capaian Kompetensi</a>
+<a href="<?= base_url('guru/template-capaian') ?>"><i class="bi bi-card-list me-2"></i> Template Capaian</a>
+<a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir</a>
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
@@ -26,13 +29,13 @@
 <?= view('partials/info_banner', [
     'judul'   => 'Cara Mengisi Capaian Kompetensi',
     'langkah' => [
-        'Untuk tiap Capaian Pembelajaran, pilih status: <strong>Tercapai Sangat Baik</strong>, <strong>Perlu Peningkatan</strong>, atau <strong>Belum Dinilai</strong> (default, tidak muncul di rapor).',
-        'Status "Tercapai Sangat Baik" masuk kalimat <em>"Mencapai Kompetensi dengan sangat baik dalam hal…"</em>; "Perlu Peningkatan" masuk <em>"Perlu peningkatan dalam hal…"</em>.',
-        'Lihat <strong>Preview Narasi</strong> yang ter-update otomatis saat Anda memilih status.',
-        'Klik <strong>+ Tambah CP Custom</strong> bila ada capaian yang belum terdaftar.',
-        'Klik <strong>Simpan</strong> bila narasi sudah sesuai.',
+        'Kotak teks tiap siswa <strong>otomatis terisi</strong> narasi template sesuai predikat nilainya (A/B/C/D).',
+        'Edit teks itu bebas sesuai kondisi siswa — yang tersimpan adalah teks final apa adanya.',
+        'Tombol <strong>Ambil ulang dari template</strong> mengisi ulang dari template band (menimpa editan).',
+        'Atur narasi template per band di menu <strong>Template Capaian</strong>.',
+        'Klik <strong>Simpan</strong> bila sudah sesuai.',
     ],
-    'tips'    => 'Narasi rapor disusun otomatis dari status CP — Anda tidak perlu mengetik manual.',
+    'tips'    => 'Huruf predikat (A/B/C/D) hanya untuk memilih template — tidak ikut tampil di rapor.',
 ]) ?>
 
 <?php if (session()->getFlashdata('success')): ?>
@@ -42,10 +45,13 @@
     <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i><?= esc(session()->getFlashdata('error')) ?></div>
 <?php endif; ?>
 
-<?php if (empty($master_cp)): ?>
+<?php $bandKosong = empty(array_filter($band_map ?? [])); ?>
+<?php if ($bandKosong): ?>
     <div class="alert alert-warning">
-        Belum ada master CP untuk mapel <strong><?= esc($mapel['nama_mapel']) ?></strong>, Fase <?= esc($fase) ?>,
-        Semester <?= esc($tahun_ajaran['semester']) ?>. Hubungi admin untuk seed atau gunakan CP custom.
+        Template band untuk <strong><?= esc($mapel['nama_mapel']) ?></strong>, Fase <?= esc($fase) ?>,
+        Semester <?= esc($tahun_ajaran['semester']) ?> belum diisi. Atur dulu di
+        <a href="<?= base_url('guru/template-capaian?id_mapel=' . $id_mapel . '&fase=' . $fase . '&semester=' . $tahun_ajaran['semester']) ?>" class="alert-link">Template Capaian</a>,
+        atau ketik manual di kotak teks.
     </div>
 <?php endif; ?>
 
@@ -59,16 +65,20 @@
         <?php
         $siswa = $ps['siswa'];
         $idNa  = (int) ($ps['id_nilai_akhir'] ?? 0);
-        $byMaster = $ps['by_master'];
-        $custom = $ps['custom'];
+        $band  = (string) ($ps['band'] ?? '');
+        $existing = trim((string) ($ps['narasi_cp'] ?? ''));
+        $prefill  = $existing !== '' ? $existing : (string) ($band_map[$band] ?? '');
         ?>
-        <div class="card border-0 shadow-sm mb-3 cp-card" data-siswa="<?= $idSiswa ?>">
+        <div class="card border-0 shadow-sm mb-3">
             <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <h5 class="mb-0 fw-bold"><?= esc($siswa['nama_siswa']) ?></h5>
                         <small class="text-muted">NIS: <?= esc($siswa['nis']) ?> | Nilai Akhir:
                             <strong><?= $ps['nilai_akhir'] !== null ? number_format($ps['nilai_akhir'], 2) : '—' ?></strong>
+                            <?php if ($band !== ''): ?>
+                                <span class="badge bg-secondary ms-1 no-print">Predikat: <?= esc($band) ?></span>
+                            <?php endif; ?>
                         </small>
                     </div>
                 </div>
@@ -77,69 +87,19 @@
                     <div class="alert alert-warning small mb-0">
                         Siswa ini belum punya <code>nilai_akhir</code>. Hitung nilai akhir dulu di menu Nilai Akhir.
                     </div>
+                    <textarea class="form-control mt-2" rows="3" disabled placeholder="Hitung nilai akhir dulu"></textarea>
                 <?php else: ?>
-                    <p class="text-muted small">Pilih status untuk setiap Capaian Pembelajaran:</p>
-
-                    <?php foreach ($master_cp as $cp): ?>
-                        <?php $existing = $byMaster[(int) $cp['id_master_cp']] ?? null;
-                              $sel = $existing['status'] ?? 'belum'; ?>
-                        <div class="p-3 border rounded mb-2 cp-row" data-deskripsi="<?= esc($cp['deskripsi']) ?>">
-                            <div class="small mb-2"><?= esc($cp['deskripsi']) ?></div>
-                            <div class="d-flex gap-3 flex-wrap">
-                                <div class="form-check">
-                                    <input class="form-check-input cp-status" type="radio"
-                                        name="cp[<?= $idNa ?>][master][<?= $cp['id_master_cp'] ?>]" value="belum"
-                                        id="cp-<?= $idNa ?>-<?= $cp['id_master_cp'] ?>-b" <?= $sel === 'belum' ? 'checked' : '' ?>>
-                                    <label class="form-check-label small text-muted" for="cp-<?= $idNa ?>-<?= $cp['id_master_cp'] ?>-b">Belum Dinilai</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input cp-status" type="radio"
-                                        name="cp[<?= $idNa ?>][master][<?= $cp['id_master_cp'] ?>]" value="tercapai_sangat_baik"
-                                        id="cp-<?= $idNa ?>-<?= $cp['id_master_cp'] ?>-t" <?= $sel === 'tercapai_sangat_baik' ? 'checked' : '' ?>>
-                                    <label class="form-check-label small text-success" for="cp-<?= $idNa ?>-<?= $cp['id_master_cp'] ?>-t">Tercapai Sangat Baik</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input cp-status" type="radio"
-                                        name="cp[<?= $idNa ?>][master][<?= $cp['id_master_cp'] ?>]" value="perlu_peningkatan"
-                                        id="cp-<?= $idNa ?>-<?= $cp['id_master_cp'] ?>-p" <?= $sel === 'perlu_peningkatan' ? 'checked' : '' ?>>
-                                    <label class="form-check-label small text-warning" for="cp-<?= $idNa ?>-<?= $cp['id_master_cp'] ?>-p">Perlu Peningkatan</label>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-
-                    <!-- Custom CP -->
-                    <div class="cp-custom-list mt-3">
-                        <?php foreach ($custom as $i => $c): ?>
-                            <div class="p-3 border rounded mb-2 cp-row cp-custom-row">
-                                <div class="row g-2 align-items-center">
-                                    <div class="col-md-8">
-                                        <input type="text" class="form-control form-control-sm cp-custom-desc"
-                                            name="cp[<?= $idNa ?>][custom][<?= $i ?>][deskripsi]"
-                                            value="<?= esc($c['deskripsi_custom']) ?>" placeholder="Deskripsi CP custom">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <select class="form-select form-select-sm cp-status"
-                                            name="cp[<?= $idNa ?>][custom][<?= $i ?>][status]">
-                                            <option value="tercapai_sangat_baik" <?= $c['status'] === 'tercapai_sangat_baik' ? 'selected' : '' ?>>Tercapai SB</option>
-                                            <option value="perlu_peningkatan" <?= $c['status'] === 'perlu_peningkatan' ? 'selected' : '' ?>>Perlu Peningkatan</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1 text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-cp"><i class="bi bi-x"></i></button>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary btn-add-cp" data-siswa="<?= $idSiswa ?>" data-id-na="<?= $idNa ?>">
-                        <i class="bi bi-plus-circle me-1"></i> Tambah CP Custom
-                    </button>
-
-                    <!-- Preview narasi -->
-                    <div class="mt-3 p-3 bg-light rounded small narasi-preview">
-                        <strong>Preview Narasi:</strong>
-                        <div class="narasi-output text-muted fst-italic">—</div>
+                    <textarea name="narasi[<?= $idNa ?>]" rows="4" class="form-control cp-narasi"
+                        data-band="<?= esc($band) ?>"><?= esc($prefill) ?></textarea>
+                    <div class="mt-2 d-flex gap-2 no-print">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-ambil-template"
+                            data-target="narasi-<?= $idNa ?>" data-band="<?= esc($band) ?>">
+                            <i class="bi bi-arrow-repeat me-1"></i> Ambil ulang dari template
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-bersihkan"
+                            data-target="narasi-<?= $idNa ?>">
+                            <i class="bi bi-eraser me-1"></i> Bersihkan
+                        </button>
                     </div>
                 <?php endif; ?>
             </div>
@@ -148,7 +108,7 @@
 
     <div class="d-flex justify-content-end mt-4">
         <button type="submit" class="btn btn-primary bg-pastel-primary border-0 fw-semibold px-4">
-            <i class="bi bi-save me-1"></i> Simpan Semua CP
+            <i class="bi bi-save me-1"></i> Simpan Semua Capaian
         </button>
     </div>
 </form>
@@ -156,75 +116,34 @@
 
 <?= $this->section('scripts') ?>
 <script>
-(function () {
-    function updateNarasi(card) {
-        const tercapai = [];
-        const perlu = [];
-        card.querySelectorAll('.cp-row').forEach(function (row) {
-            const isCustom = row.classList.contains('cp-custom-row');
-            let deskripsi, status;
-            if (isCustom) {
-                deskripsi = (row.querySelector('.cp-custom-desc')?.value || '').trim();
-                status    = row.querySelector('select.cp-status')?.value;
-            } else {
-                deskripsi = row.dataset.deskripsi || '';
-                const chk = row.querySelector('input[type="radio"]:checked');
-                status = chk ? chk.value : 'belum';
-            }
-            if (!deskripsi) return;
-            if (status === 'tercapai_sangat_baik') tercapai.push(deskripsi);
-            else if (status === 'perlu_peningkatan') perlu.push(deskripsi);
-        });
-        let parts = [];
-        if (tercapai.length) parts.push('Mencapai Kompetensi dengan sangat baik dalam hal ' + tercapai.join(', ') + '.');
-        if (perlu.length)    parts.push('Perlu peningkatan dalam hal ' + perlu.join(', ') + '.');
-        card.querySelector('.narasi-output').textContent = parts.length ? parts.join(' ') : '—';
-    }
+    // Peta narasi template per band — sumber tombol "Ambil ulang dari template".
+    const BAND_MAP = <?= json_encode($band_map ?? ['A' => '', 'B' => '', 'C' => '', 'D' => ''], JSON_UNESCAPED_UNICODE) ?>;
 
-    document.querySelectorAll('.cp-card').forEach(function (card) {
-        card.addEventListener('change', function () { updateNarasi(card); });
-        card.addEventListener('input', function () { updateNarasi(card); });
-        updateNarasi(card);
+    // Beri id ke tiap textarea berdasar atribut name narasi[<id>].
+    document.querySelectorAll('textarea.cp-narasi').forEach(function (ta) {
+        const m = (ta.getAttribute('name') || '').match(/narasi\[(\d+)\]/);
+        if (m) ta.id = 'narasi-' + m[1];
     });
 
-    document.querySelectorAll('.btn-add-cp').forEach(function (btn) {
+    document.querySelectorAll('.btn-ambil-template').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            const card = btn.closest('.cp-card');
-            const list = card.querySelector('.cp-custom-list');
-            const idNa = btn.dataset.idNa;
-            const idx  = list.children.length + 1000; // unique
-            const html = `
-                <div class="p-3 border rounded mb-2 cp-row cp-custom-row">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-md-8">
-                            <input type="text" class="form-control form-control-sm cp-custom-desc"
-                                name="cp[${idNa}][custom][${idx}][deskripsi]" placeholder="Deskripsi CP custom">
-                        </div>
-                        <div class="col-md-3">
-                            <select class="form-select form-select-sm cp-status"
-                                name="cp[${idNa}][custom][${idx}][status]">
-                                <option value="tercapai_sangat_baik">Tercapai SB</option>
-                                <option value="perlu_peningkatan">Perlu Peningkatan</option>
-                            </select>
-                        </div>
-                        <div class="col-md-1 text-end">
-                            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-cp"><i class="bi bi-x"></i></button>
-                        </div>
-                    </div>
-                </div>`;
-            list.insertAdjacentHTML('beforeend', html);
-            updateNarasi(card);
+            const ta = document.getElementById(btn.dataset.target);
+            const band = btn.dataset.band || '';
+            if (!ta) return;
+            const teks = BAND_MAP[band] || '';
+            if (teks === '') {
+                alert('Template band ' + (band || '-') + ' belum diisi. Atur di menu Template Capaian.');
+                return;
+            }
+            ta.value = teks;
         });
     });
 
-    document.addEventListener('click', function (e) {
-        if (e.target.closest('.btn-remove-cp')) {
-            const row = e.target.closest('.cp-row');
-            const card = row.closest('.cp-card');
-            row.remove();
-            updateNarasi(card);
-        }
+    document.querySelectorAll('.btn-bersihkan').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const ta = document.getElementById(btn.dataset.target);
+            if (ta) ta.value = '';
+        });
     });
-})();
 </script>
 <?= $this->endSection() ?>

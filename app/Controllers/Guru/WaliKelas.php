@@ -116,6 +116,13 @@ class WaliKelas extends BaseController
         $tema = $temaModel->findForKelasTa((int) $siswa['id_kelas'], $idTa);
         $kokoExisting = $tema ? $siswaKokoModel->findForSiswaTema($idSiswa, (int) $tema['id_tema']) : [];
 
+        // Draft narasi koko auto-generate (dipakai prefill bila rapor.narasi_koko kosong).
+        $kokoDraft = '';
+        if ($tema) {
+            $kokoDraft = (new \App\Libraries\RaporNarrativeService())
+                ->generateNarasiKokurikuler($tema['nama_tema'], $kokoExisting);
+        }
+
         return view('guru/wali_kelas/siswa', [
             'title'           => 'Wali Kelas — ' . $siswa['nama_siswa'],
             'siswa'           => $siswa,
@@ -128,6 +135,7 @@ class WaliKelas extends BaseController
             'tema'            => $tema,
             'ekskul_siswa'    => $siswaEkskulModel->findForSiswaTa($idSiswa, $idTa),
             'koko_siswa'      => $kokoExisting,
+            'koko_draft'      => $kokoDraft,
         ]);
     }
 
@@ -205,7 +213,14 @@ class WaliKelas extends BaseController
         $siswa = $siswaModel->find($idSiswa);
         $idTa  = (int) $siswa['id_tahun_ajaran'];
 
-        $siswaEkskulModel = new SiswaEkstrakurikulerModel();
+        $siswaEkskulModel  = new SiswaEkstrakurikulerModel();
+        $masterEkskulModel = new MasterEkstrakurikulerModel();
+
+        // Master ekskul (untuk default keterangan + paksa ekskul wajib).
+        $masterById = [];
+        foreach ($masterEkskulModel->findActive() as $me) {
+            $masterById[(int) $me['id_ekskul']] = $me;
+        }
 
         // Hapus assignment lama untuk (siswa, TA), insert ulang dari form
         $db = \Config\Database::connect();
@@ -216,13 +231,34 @@ class WaliKelas extends BaseController
             ->where('id_tahun_ajaran', $idTa)
             ->delete();
 
+        $sudah = []; // id_ekskul yang sudah tersimpan
         foreach ($ekskul as $idEkskul => $row) {
             $idEkskul = (int) $idEkskul;
-            $aktif = !empty($row['aktif']);
-            if (!$aktif) {
+            if (empty($row['aktif'])) {
                 continue;
             }
             $ket = trim((string) ($row['keterangan'] ?? ''));
+            if ($ket === '') {
+                $ket = (string) ($masterById[$idEkskul]['deskripsi_default'] ?? '');
+            }
+            $siswaEkskulModel->insert([
+                'id_siswa'        => $idSiswa,
+                'id_ekskul'       => $idEkskul,
+                'id_tahun_ajaran' => $idTa,
+                'keterangan'      => $ket !== '' ? $ket : null,
+            ]);
+            $sudah[$idEkskul] = true;
+        }
+
+        // Paksa ekskul WAJIB (mis. Pramuka) selalu tersimpan walau checkbox-nya
+        // disabled / tidak terkirim. Keterangan pakai input form bila ada,
+        // selain itu deskripsi_default master.
+        foreach ($masterById as $idEkskul => $me) {
+            if ((int) ($me['wajib'] ?? 0) !== 1 || isset($sudah[$idEkskul])) {
+                continue;
+            }
+            $ketForm = trim((string) ($ekskul[$idEkskul]['keterangan'] ?? ''));
+            $ket = $ketForm !== '' ? $ketForm : (string) ($me['deskripsi_default'] ?? '');
             $siswaEkskulModel->insert([
                 'id_siswa'        => $idSiswa,
                 'id_ekskul'       => $idEkskul,
@@ -239,15 +275,27 @@ class WaliKelas extends BaseController
 
     public function saveKokurikuler()
     {
-        $idSiswa = (int) $this->request->getPost('id_siswa');
-        $idTema  = (int) $this->request->getPost('id_tema');
-        $dimensi = $this->request->getPost('dimensi') ?? [];
+        $idSiswa    = (int) $this->request->getPost('id_siswa');
+        $idTema     = (int) $this->request->getPost('id_tema');
+        $dimensi    = $this->request->getPost('dimensi') ?? [];
+        $narasiKoko = trim((string) $this->request->getPost('narasi_koko'));
 
         if ($idSiswa <= 0 || $idTema <= 0 || !\is_array($dimensi)) {
             return redirect()->back()->with('error', 'Data tidak valid.');
         }
         if ($response = $this->guardOwnership($idSiswa)) {
             return $response;
+        }
+
+        // Simpan narasi kokurikuler manual ke rapor (verbatim). Kosong → null
+        // → rapor fallback ke narasi auto-generate.
+        $siswaModel = new SiswaModel();
+        $raporModel = new RaporModel();
+        $siswaRow = $siswaModel->find($idSiswa);
+        $idTa = (int) ($siswaRow['id_tahun_ajaran'] ?? 0);
+        $rapor = $raporModel->where('id_siswa', $idSiswa)->where('id_tahun_ajaran', $idTa)->first();
+        if ($rapor) {
+            $raporModel->update($rapor['id_rapor'], ['narasi_koko' => $narasiKoko !== '' ? $narasiKoko : null]);
         }
 
         $kokoModel = new SiswaKokurikulerDimensiModel();

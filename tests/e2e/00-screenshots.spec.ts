@@ -45,4 +45,25 @@ test.describe('Screenshot dokumentasi /hasil', () => {
     await page.waitForLoadState('networkidle');
     await page.screenshot({ path: `${HASIL}/05-help-panduan-rapor.png`, fullPage: true });
   });
+
+  test('kelola template capaian 4-band', async ({ page }) => {
+    await login(page, 'guruKelas3');
+    await page.goto('/guru/template-capaian?id_mapel=1&fase=B&semester=Ganjil');
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: `${HASIL}/06-template-capaian-band.png`, fullPage: true });
+  });
+
+  test('input CP per siswa (prefill band → textarea)', async ({ page }) => {
+    await login(page, 'guruKelas3');
+    await page.goto('/guru/capaian-kompetensi/input?id_kelas=3&id_mapel=1&id_tahun_ajaran=5');
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: `${HASIL}/07-input-cp-band.png`, fullPage: true });
+  });
+
+  test('wali kelas — ekskul wajib + koko narasi', async ({ page }) => {
+    await login(page, 'guruKelas3');
+    await page.goto('/guru/wali-kelas/siswa/244');
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: `${HASIL}/08-wali-kelas-siswa.png`, fullPage: true });
+  });
 });

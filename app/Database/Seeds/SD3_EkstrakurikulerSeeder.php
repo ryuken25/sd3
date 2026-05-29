@@ -14,33 +14,39 @@ class SD3_EkstrakurikulerSeeder extends Seeder
     {
         echo "▶ Master Ekstrakurikuler ... ";
 
+        // [nama, deskripsi_default, wajib]
         $items = [
-            ['Pramuka', 'Mampu mempraktekkan gerak dasar pramuka, baris-berbaris dan bekerja sama dalam permainan berkelompok'],
-            ['Majejahitan', 'Mampu mempraktekkan pembuatan sarana upakara dengan baik'],
-            ['Yoga', 'Mampu mempraktekkan teknik dasar yoga'],
-            ['Menari', 'Mampu mempraktekkan tarian dasar dengan baik'],
+            ['Pramuka', 'Mampu mempraktekkan gerak dasar pramuka, baris-berbaris dan bekerja sama dalam permainan berkelompok', 1],
+            ['Majejahitan', 'Mampu mempraktekkan pembuatan sarana upakara dengan baik', 0],
+            ['Yoga', 'Mampu mempraktekkan teknik dasar yoga', 0],
+            ['Menari', 'Mampu mempraktekkan tarian dasar dengan baik', 0],
         ];
 
         $inserted = 0;
-        $skipped  = 0;
+        $updated  = 0;
         $now = date('Y-m-d H:i:s');
 
-        foreach ($items as [$nama, $deskripsi]) {
+        foreach ($items as [$nama, $deskripsi, $wajib]) {
             $exists = $this->db->table('master_ekstrakurikuler')->where('nama', $nama)->get()->getRow();
             if ($exists) {
-                $skipped++;
+                // Idempotent: pastikan flag wajib tetap sesuai (mis. Pramuka=1).
+                $this->db->table('master_ekstrakurikuler')
+                    ->where('id_ekskul', $exists->id_ekskul)
+                    ->update(['wajib' => $wajib, 'updated_at' => $now]);
+                $updated++;
                 continue;
             }
             $this->db->table('master_ekstrakurikuler')->insert([
                 'nama'              => $nama,
                 'deskripsi_default' => $deskripsi,
                 'aktif'             => 1,
+                'wajib'             => $wajib,
                 'created_at'        => $now,
                 'updated_at'        => $now,
             ]);
             $inserted++;
         }
 
-        echo "✓ ($inserted inserted, $skipped skipped)\n";
+        echo "✓ ($inserted inserted, $updated updated)\n";
     }
 }

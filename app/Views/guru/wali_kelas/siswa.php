@@ -142,21 +142,33 @@ $namaPanggilan = explode(' ', trim((string) $siswa['nama_siswa']))[0];
                     <?= csrf_field() ?>
                     <input type="hidden" name="id_siswa" value="<?= $siswa['id_siswa'] ?>">
 
-                    <p class="text-muted small">Centang ekstrakurikuler yang siswa ikuti, sesuaikan keterangannya bila perlu.</p>
+                    <p class="text-muted small">Centang ekstrakurikuler yang siswa ikuti, sesuaikan keterangannya bila perlu.
+                        Ekskul bertanda <span class="badge bg-danger">Wajib</span> selalu diikuti semua siswa.</p>
 
                     <?php foreach ($master_ekskul as $me): ?>
-                        <?php $existing = $ekskulMap[(int) $me['id_ekskul']] ?? null; ?>
+                        <?php
+                        $existing = $ekskulMap[(int) $me['id_ekskul']] ?? null;
+                        $isWajib  = (int) ($me['wajib'] ?? 0) === 1;
+                        $checked  = $isWajib || $existing;
+                        $ket      = $existing['keterangan'] ?? $me['deskripsi_default'];
+                        ?>
                         <div class="mb-3 p-3 border rounded">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox"
                                     name="ekskul[<?= $me['id_ekskul'] ?>][aktif]" value="1"
-                                    id="ekskul-<?= $me['id_ekskul'] ?>" <?= $existing ? 'checked' : '' ?>>
+                                    id="ekskul-<?= $me['id_ekskul'] ?>"
+                                    <?= $checked ? 'checked' : '' ?> <?= $isWajib ? 'disabled' : '' ?>>
                                 <label class="form-check-label fw-semibold" for="ekskul-<?= $me['id_ekskul'] ?>">
                                     <?= esc($me['nama']) ?>
+                                    <?php if ($isWajib): ?><span class="badge bg-danger ms-1">Wajib</span><?php endif; ?>
                                 </label>
+                                <?php if ($isWajib): ?>
+                                    <!-- checkbox disabled tidak ikut submit → hidden input agar tetap terkirim -->
+                                    <input type="hidden" name="ekskul[<?= $me['id_ekskul'] ?>][aktif]" value="1">
+                                <?php endif; ?>
                             </div>
                             <textarea name="ekskul[<?= $me['id_ekskul'] ?>][keterangan]" class="form-control mt-2"
-                                rows="2" placeholder="<?= esc($me['deskripsi_default']) ?>"><?= esc($existing['keterangan'] ?? $me['deskripsi_default']) ?></textarea>
+                                rows="2" placeholder="<?= esc($me['deskripsi_default']) ?>"><?= esc($ket) ?></textarea>
                         </div>
                     <?php endforeach; ?>
 
@@ -210,9 +222,26 @@ $namaPanggilan = explode(' ', trim((string) $siswa['nama_siswa']))[0];
                             </div>
                         <?php endforeach; ?>
 
-                        <button class="btn btn-primary bg-pastel-primary border-0 fw-semibold">
-                            <i class="bi bi-save me-1"></i> Simpan Kokurikuler
-                        </button>
+                        <hr class="my-3">
+                        <label class="form-label fw-semibold"><i class="bi bi-card-text me-1"></i>Narasi Kokurikuler (untuk rapor)</label>
+                        <?php
+                        $kokoNarasiExisting = trim((string) ($rapor['narasi_koko'] ?? ''));
+                        $kokoPrefill = $kokoNarasiExisting !== '' ? $kokoNarasiExisting : (string) ($koko_draft ?? '');
+                        ?>
+                        <textarea name="narasi_koko" id="narasiKoko" rows="5" class="form-control"
+                            placeholder="Narasi kokurikuler yang tampil di rapor..."><?= esc($kokoPrefill) ?></textarea>
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAmbilKoko">
+                                <i class="bi bi-arrow-repeat me-1"></i> Ambil ulang dari template (otomatis)
+                            </button>
+                            <small class="text-muted align-self-center">Kosongkan untuk pakai narasi otomatis dari dimensi di atas.</small>
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn btn-primary bg-pastel-primary border-0 fw-semibold">
+                                <i class="bi bi-save me-1"></i> Simpan Kokurikuler
+                            </button>
+                        </div>
                     </form>
                 <?php endif; ?>
             </div>
@@ -227,6 +256,15 @@ $namaPanggilan = explode(' ', trim((string) $siswa['nama_siswa']))[0];
     document.getElementById('selectTemplate')?.addEventListener('change', function () {
         const txt = (this.value || '').replace(/\{nama_panggilan\}/g, <?= json_encode($namaPanggilan) ?>);
         if (txt) document.getElementById('catatanText').value = txt;
+    });
+
+    // Koko: ambil ulang narasi otomatis dari dimensi (draft auto-generate).
+    document.getElementById('btnAmbilKoko')?.addEventListener('click', function () {
+        const draft = <?= json_encode($koko_draft ?? '', JSON_UNESCAPED_UNICODE) ?>;
+        const ta = document.getElementById('narasiKoko');
+        if (!ta) return;
+        if (!draft) { alert('Belum ada dimensi kokurikuler yang diisi untuk dijadikan narasi otomatis.'); return; }
+        ta.value = draft;
     });
 </script>
 <?= $this->endSection() ?>
