@@ -3,6 +3,8 @@
 <?= $this->section('sidebar') ?>
 <div class="sidebar-heading">Menu Utama</div>
 <a href="<?= base_url('guru/dashboard') ?>"><i class="bi bi-speedometer2 me-2"></i> Dashboard</a>
+<a href="<?= base_url('guru/capaian-kompetensi') ?>"><i class="bi bi-bookmark-check me-2"></i> Capaian Kompetensi</a>
+<a href="<?= base_url('guru/template-capaian') ?>"><i class="bi bi-card-list me-2"></i> Template Capaian</a>
 <div class="sidebar-heading mt-3">Wali Kelas</div>
 <a href="<?= base_url('guru/wali-kelas') ?>" class="active"><i class="bi bi-people-fill me-2"></i> Anak Wali Kelas</a>
 <?= $this->endSection() ?>
