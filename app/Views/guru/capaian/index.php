@@ -7,7 +7,9 @@
 <a href="<?= base_url('guru/penilaian-agregat') ?>"><i class="bi bi-files me-2"></i> Penilaian Agregat</a>
 <a href="<?= base_url('guru/capaian-kompetensi') ?>" class="active"><i class="bi bi-bookmark-check me-2"></i> Capaian Kompetensi</a>
 <a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir</a>
-<?= $this->endSection() ?>
+
+<div class="sidebar-heading mt-3">Wali Kelas</div>
+<a href="<?= base_url('guru/wali-kelas') ?>"><i class="bi bi-people-fill me-2"></i> Anak Wali Kelas</a><?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
 <div class="mb-4">
