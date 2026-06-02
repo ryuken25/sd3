@@ -3,13 +3,10 @@
 namespace App\Controllers\Guru;
 
 use App\Controllers\BaseController;
-use App\Libraries\RaporNarrativeService;
 use App\Models\KelasModel;
-use App\Models\MapelKelasModel;
 use App\Models\MasterCapaianPembelajaranModel;
 use App\Models\MataPelajaranModel;
 use App\Models\NilaiAkhirModel;
-use App\Models\NilaiCapaianKompetensiModel;
 use App\Models\SiswaModel;
 use App\Models\TahunAjaranModel;
 
@@ -62,7 +59,6 @@ class CapaianKompetensi extends BaseController
         $siswaModel = new SiswaModel();
         $masterCpModel = new MasterCapaianPembelajaranModel();
         $nilaiAkhirModel = new NilaiAkhirModel();
-        $nilaiCpModel = new NilaiCapaianKompetensiModel();
 
         $kelas = $kelasModel->find($idKelas);
         $mapel = $mapelModel->find($idMapel);
@@ -92,13 +88,24 @@ class CapaianKompetensi extends BaseController
         // Peta narasi template per band predikat (A/B/C/D) untuk mapel+fase+semester ini.
         $bandMap = $masterCpModel->getBandMap($idMapel, $fase, $ta['semester']);
 
+        // Ambil semua nilai_akhir kelas ini dalam satu query (hindari N+1 di loop),
+        // di-index per id_siswa untuk lookup cepat.
+        $naBySiswa = [];
+        $siswaIds  = array_column($siswa, 'id_siswa');
+        if ($siswaIds !== []) {
+            $naRows = $nilaiAkhirModel->whereIn('id_siswa', $siswaIds)
+                ->where('id_mapel', $idMapel)
+                ->where('id_tahun_ajaran', $idTa)
+                ->findAll();
+            foreach ($naRows as $row) {
+                $naBySiswa[$row['id_siswa']] = $row;
+            }
+        }
+
         // Untuk tiap siswa: id_nilai_akhir, narasi_cp existing, band dari nilai_huruf.
         $perSiswa = [];
         foreach ($siswa as $s) {
-            $na = $nilaiAkhirModel->where('id_siswa', $s['id_siswa'])
-                ->where('id_mapel', $idMapel)
-                ->where('id_tahun_ajaran', $idTa)
-                ->first();
+            $na = $naBySiswa[$s['id_siswa']] ?? null;
 
             // Mapping huruf → band: A→A, B→B, C→C, D→D, E→D, lainnya kosong.
             $huruf = strtoupper((string) ($na['nilai_huruf'] ?? ''));
