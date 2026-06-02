@@ -29,9 +29,9 @@
 <?= view('partials/info_banner', [
     'judul'   => 'Cara Mengisi Capaian Kompetensi',
     'langkah' => [
-        'Kotak teks tiap siswa <strong>otomatis terisi</strong> narasi template sesuai predikat nilainya (A/B/C/D).',
-        'Edit teks itu bebas sesuai kondisi siswa — yang tersimpan adalah teks final apa adanya.',
-        'Tombol <strong>Ambil ulang dari template</strong> mengisi ulang dari template band (menimpa editan).',
+        'Tiap siswa punya <strong>satu kotak narasi yang selalu bisa diisi</strong> — tidak perlu menunggu Nilai Akhir dihitung.',
+        'Isi singkat saja; teks final apa adanya itulah yang tampil di rapor.',
+        'Bila Nilai Akhir sudah ada, tombol <strong>Ambil template</strong> mengisi saran narasi sesuai predikat (A/B/C/D).',
         'Atur narasi template per band di menu <strong>Template Capaian</strong>.',
         'Klik <strong>Simpan</strong> bila sudah sesuai.',
     ],
@@ -64,10 +64,9 @@
     <?php foreach ($per_siswa as $idSiswa => $ps): ?>
         <?php
         $siswa = $ps['siswa'];
-        $idNa  = (int) ($ps['id_nilai_akhir'] ?? 0);
         $band  = (string) ($ps['band'] ?? '');
-        $existing = trim((string) ($ps['narasi_cp'] ?? ''));
-        $prefill  = $existing !== '' ? $existing : (string) ($band_map[$band] ?? '');
+        $narasi = trim((string) ($ps['narasi'] ?? ''));
+        $hasNilai = $ps['nilai_akhir'] !== null;
         ?>
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body p-4">
@@ -75,7 +74,7 @@
                     <div>
                         <h5 class="mb-0 fw-bold"><?= esc($siswa['nama_siswa']) ?></h5>
                         <small class="text-muted">NIS: <?= esc($siswa['nis']) ?> | Nilai Akhir:
-                            <strong><?= $ps['nilai_akhir'] !== null ? number_format($ps['nilai_akhir'], 2) : '—' ?></strong>
+                            <strong><?= $hasNilai ? number_format($ps['nilai_akhir'], 2) : '—' ?></strong>
                             <?php if ($band !== ''): ?>
                                 <span class="badge bg-secondary ms-1 no-print">Predikat: <?= esc($band) ?></span>
                             <?php endif; ?>
@@ -83,25 +82,24 @@
                     </div>
                 </div>
 
-                <?php if ($idNa === 0): ?>
-                    <div class="alert alert-warning small mb-0">
-                        Siswa ini belum punya <code>nilai_akhir</code>. Hitung nilai akhir dulu di menu Nilai Akhir.
-                    </div>
-                    <textarea class="form-control mt-2" rows="3" disabled placeholder="Hitung nilai akhir dulu"></textarea>
-                <?php else: ?>
-                    <textarea name="narasi[<?= $idNa ?>]" rows="4" class="form-control cp-narasi"
-                        data-band="<?= esc($band) ?>"><?= esc($prefill) ?></textarea>
-                    <div class="mt-2 d-flex gap-2 no-print">
+                <textarea name="narasi[<?= (int) $idSiswa ?>]" rows="3" class="form-control cp-narasi"
+                    data-band="<?= esc($band) ?>"
+                    placeholder="Tulis capaian kompetensi siswa untuk mapel ini…"><?= esc($narasi) ?></textarea>
+                <div class="mt-2 d-flex gap-2 align-items-center no-print">
+                    <?php if ($band !== '' && trim((string) ($band_map[$band] ?? '')) !== ''): ?>
                         <button type="button" class="btn btn-sm btn-outline-primary btn-ambil-template"
-                            data-target="narasi-<?= $idNa ?>" data-band="<?= esc($band) ?>">
-                            <i class="bi bi-arrow-repeat me-1"></i> Ambil ulang dari template
+                            data-target="narasi-<?= (int) $idSiswa ?>" data-band="<?= esc($band) ?>">
+                            <i class="bi bi-arrow-repeat me-1"></i> Ambil template (<?= esc($band) ?>)
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary btn-bersihkan"
-                            data-target="narasi-<?= $idNa ?>">
-                            <i class="bi bi-eraser me-1"></i> Bersihkan
-                        </button>
-                    </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+                    <button type="button" class="btn btn-sm btn-outline-secondary btn-bersihkan"
+                        data-target="narasi-<?= (int) $idSiswa ?>">
+                        <i class="bi bi-eraser me-1"></i> Bersihkan
+                    </button>
+                    <?php if (!$hasNilai): ?>
+                        <small class="text-muted ms-auto"><i class="bi bi-info-circle me-1"></i>Nilai Akhir belum dihitung — narasi tetap bisa diisi & disimpan.</small>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     <?php endforeach; ?>

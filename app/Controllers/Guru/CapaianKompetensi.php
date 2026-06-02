@@ -3,6 +3,7 @@
 namespace App\Controllers\Guru;
 
 use App\Controllers\BaseController;
+use App\Models\CapaianNarasiModel;
 use App\Models\KelasModel;
 use App\Models\MasterCapaianPembelajaranModel;
 use App\Models\MataPelajaranModel;
@@ -15,12 +16,13 @@ use App\Models\TahunAjaranModel;
  *
  * Workflow:
  *   1. Index: pilih kelas + mapel + TA
- *   2. Input: tampilkan list siswa di kelas tsb, per siswa show CP master untuk
- *      fase+semester mapel itu, status radio (tercapai_sangat_baik / perlu_peningkatan / belum)
- *   3. Save: upsert ke nilai_capaian_kompetensi per (nilai_akhir, master_cp_id)
+ *   2. Input: tampilkan semua siswa aktif di kelas tsb; tiap siswa punya kotak
+ *      narasi yang selalu bisa diisi (tidak menunggu Nilai Akhir). Bila Nilai Akhir
+ *      sudah ada, predikat (A/B/C/D) dipakai untuk menyarankan template band.
+ *   3. Save: upsert narasi verbatim ke tabel capaian_narasi per (siswa, mapel, TA).
  *
- * Catatan: CP tersimpan di-link ke `nilai_akhir`, jadi nilai_akhir untuk siswa+mapel+TA
- * harus sudah ada (dari Penilaian Agregat → Hitung Nilai Akhir).
+ * Catatan: narasi CP kini lepas dari `nilai_akhir`, jadi guru bisa mengisi kapan pun.
+ * Rapor membaca narasi dari capaian_narasi (fallback ke data lama bila kosong).
  */
 class CapaianKompetensi extends BaseController
 {
@@ -59,6 +61,7 @@ class CapaianKompetensi extends BaseController
         $siswaModel = new SiswaModel();
         $masterCpModel = new MasterCapaianPembelajaranModel();
         $nilaiAkhirModel = new NilaiAkhirModel();
+        $narasiModel = new CapaianNarasiModel();
 
         $kelas = $kelasModel->find($idKelas);
         $mapel = $mapelModel->find($idMapel);
@@ -102,7 +105,10 @@ class CapaianKompetensi extends BaseController
             }
         }
 
-        // Untuk tiap siswa: id_nilai_akhir, narasi_cp existing, band dari nilai_huruf.
+        // Narasi tersimpan per siswa (tabel capaian_narasi, lepas dari nilai_akhir).
+        $narasiBySiswa = $narasiModel->mapForMapelTa($siswaIds, $idMapel, $idTa);
+
+        // Untuk tiap siswa: band dari nilai_huruf (bila ada nilai_akhir) + narasi existing.
         $perSiswa = [];
         foreach ($siswa as $s) {
             $na = $naBySiswa[$s['id_siswa']] ?? null;
@@ -114,12 +120,17 @@ class CapaianKompetensi extends BaseController
                 default => '',
             };
 
+            // Narasi existing: tabel baru → fallback legacy nilai_akhir.narasi_cp.
+            $narasi = $narasiBySiswa[$s['id_siswa']] ?? '';
+            if ($narasi === '') {
+                $narasi = (string) ($na['narasi_cp'] ?? '');
+            }
+
             $perSiswa[$s['id_siswa']] = [
-                'siswa'          => $s,
-                'id_nilai_akhir' => $na['id_nilai_akhir'] ?? null,
-                'nilai_akhir'    => $na['nilai_akhir'] ?? null,
-                'band'           => $band,
-                'narasi_cp'      => $na['narasi_cp'] ?? '',
+                'siswa'        => $s,
+                'nilai_akhir'  => $na['nilai_akhir'] ?? null,
+                'band'         => $band,
+                'narasi'       => $narasi,
             ];
         }
 
@@ -138,8 +149,9 @@ class CapaianKompetensi extends BaseController
     }
 
     /**
-     * Simpan narasi capaian manual per siswa verbatim ke nilai_akhir.narasi_cp.
-     * POST body: narasi[id_nilai_akhir] = "teks final" (boleh hasil prefill band, sudah diedit).
+     * Simpan narasi capaian manual per siswa verbatim ke tabel capaian_narasi.
+     * POST body: narasi[id_siswa] = "teks final" (boleh hasil prefill band, sudah diedit).
+     * Tidak butuh nilai_akhir — guru bisa mengisi kapan pun.
      */
     public function save()
     {
@@ -159,18 +171,17 @@ class CapaianKompetensi extends BaseController
             return $response;
         }
 
-        $nilaiAkhirModel = new NilaiAkhirModel();
+        $narasiModel = new CapaianNarasiModel();
         $db = \Config\Database::connect();
         $db->transStart();
 
         try {
-            foreach ($narasi as $idNilaiAkhir => $teks) {
-                $idNilaiAkhir = (int) $idNilaiAkhir;
-                if ($idNilaiAkhir <= 0) {
+            foreach ($narasi as $idSiswa => $teks) {
+                $idSiswa = (int) $idSiswa;
+                if ($idSiswa <= 0) {
                     continue;
                 }
-                $teks = trim((string) $teks);
-                $nilaiAkhirModel->update($idNilaiAkhir, ['narasi_cp' => $teks !== '' ? $teks : null]);
+                $narasiModel->upsertNarasi($idSiswa, $idMapel, $idTa, (string) $teks);
             }
 
             $db->transComplete();

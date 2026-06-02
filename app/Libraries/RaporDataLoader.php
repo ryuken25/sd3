@@ -2,6 +2,7 @@
 
 namespace App\Libraries;
 
+use App\Models\CapaianNarasiModel;
 use App\Models\KelasModel;
 use App\Models\KokurikulerTemaModel;
 use App\Models\NilaiAkhirModel;
@@ -57,6 +58,7 @@ class RaporDataLoader
         $raporModel       = new RaporModel();
         $nilaiAkhirModel  = new NilaiAkhirModel();
         $nilaiCpModel     = new NilaiCapaianKompetensiModel();
+        $capaianNarasiModel = new CapaianNarasiModel();
         $temaModel        = new KokurikulerTemaModel();
         $siswaEkskulModel = new SiswaEkstrakurikulerModel();
         $siswaKokoModel   = new SiswaKokurikulerDimensiModel();
@@ -98,11 +100,16 @@ class RaporDataLoader
         $narrative = new RaporNarrativeService();
         $mapelData = ['wajib' => [], 'pilihan' => []];
         foreach ($nilaiRows as $row) {
-            // Pakai narasi manual (nilai_akhir.narasi_cp) bila ada; kalau kosong
-            // fallback ke narasi auto-rakit dari nilai_capaian_kompetensi lama.
-            $manual = trim((string) ($row['narasi_cp'] ?? ''));
+            // Prioritas narasi CP:
+            //   1) capaian_narasi (tabel baru, diisi guru, lepas dari nilai_akhir)
+            //   2) nilai_akhir.narasi_cp (data lama sebelum decouple)
+            //   3) auto-rakit dari nilai_capaian_kompetensi lama
+            $manual = $capaianNarasiModel->narasiFor($idSiswa, (int) $row['id_mapel'], $idTa);
+            if ($manual === '') {
+                $manual = trim((string) ($row['narasi_cp'] ?? ''));
+            }
             $row['capaian_narasi'] = $manual !== ''
-                ? $row['narasi_cp']
+                ? $manual
                 : $narrative->generateNarasiCP($nilaiCpModel->listWithDeskripsi((int) $row['id_nilai_akhir']));
             // Bahasa Bali (kode BBALI) = mapel pilihan; sisanya = wajib
             $isPilihan = strtoupper((string) ($row['kode_mapel'] ?? '')) === 'BBALI';
