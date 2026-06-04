@@ -61,7 +61,7 @@
                             <th>No</th>
                             <th>NIS</th>
                             <th>Nama Siswa</th>
-                            <th>JK</th>
+                            <th>Jenis Kelamin</th>
                             <th class="text-center">Aksi</th>
                         </tr>
                     </thead>

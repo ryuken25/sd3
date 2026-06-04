@@ -114,20 +114,15 @@
         <div class="login-box">
             <div class="row g-4 align-items-stretch">
                 <div class="col-lg-6">
-                    <div class="hero-card h-100 p-4 p-lg-5 d-flex flex-column justify-content-between">
-                        <div>
-                            <div class="brand-badge mb-3">
-                                <i class="bi bi-mortarboard-fill fs-2"></i>
-                            </div>
-                            <div class="login-logo text-start">
-                                <span class="badge text-bg-light border mb-3">SDN 3 Mekarsari</span>
-                                <h4>Sistem Informasi Manajemen Nilai Siswa</h4>
-                                <p class="mb-0">Platform akademik untuk admin, guru, dan orang tua dalam mengelola
-                                    nilai, remedial, serta e-rapor digital secara aman dan rapi.</p>
-                            </div>
+                    <div class="hero-card h-100 p-4 p-lg-5 d-flex flex-column justify-content-center align-items-center text-center">
+                        <img src="<?= base_url('assets/images/logo.png') ?>" alt="Logo SD Negeri 3 Mekarsari"
+                             style="width:120px;height:auto;margin-bottom:20px;">
+                        <div class="login-logo">
+                            <span class="badge text-bg-light border mb-3">SDN 3 Mekarsari</span>
+                            <h4>Sistem Informasi Manajemen Nilai Siswa</h4>
+                            <p class="mb-0">Platform akademik untuk admin, guru, dan orang tua dalam mengelola
+                                nilai, remedial, serta e-rapor digital secara aman dan rapi.</p>
                         </div>
-
-
                     </div>
                 </div>
 

@@ -54,8 +54,8 @@
                         <th>Tahun Ajaran</th>
                         <th>Semester</th>
                         <th>Periode</th>
-                        <th>Aktif</th>
-                        <th>Status Pengisian</th>
+                        <th>Status Editor</th>
+                        <th>Status</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -70,17 +70,17 @@
                                 <td><small><?= date('d/m/Y', strtotime($t['tanggal_mulai'])) ?> —
                                         <?= date('d/m/Y', strtotime($t['tanggal_selesai'])) ?></small></td>
                                 <td>
-                                    <?php if ($t['aktif'] === 'aktif'): ?>
-                                        <span class="badge bg-pastel-success">Aktif Saat Ini</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-secondary">Non-Aktif</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
                                     <?php if ($t['status_pengisian'] === 'Buka'): ?>
                                         <span class="badge bg-pastel-warning"><i class="bi bi-unlock me-1"></i>Buka</span>
                                     <?php else: ?>
                                         <span class="badge bg-pastel-danger"><i class="bi bi-lock me-1"></i>Kunci</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($t['aktif'] === 'aktif'): ?>
+                                        <span class="badge bg-pastel-success">Aktif Saat Ini</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary">Non-Aktif</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>

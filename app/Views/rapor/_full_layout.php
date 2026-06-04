@@ -57,6 +57,21 @@ $renderMapelRows = static function (array $rows, bool $showBadge): string {
 ?>
 <div class="rapor-container">
 
+    <!-- ═══ 0. KOP SURAT SEKOLAH ═══ -->
+    <?php
+    // Banner kop di-embed base64 agar identik di e-rapor online & PDF Dompdf.
+    // Dompdf tidak bisa shape aksara Bali dari font, dan base64 menghindari
+    // masalah path gambar di Dompdf.
+    $kopFile = FCPATH . 'assets/images/kop.png';
+    $kopSrc  = is_file($kopFile)
+        ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($kopFile))
+        : base_url('assets/images/kop.png');
+    ?>
+    <div class="rapor-kop" style="text-align:center;margin:0 0 10px;">
+        <img src="<?= $kopSrc ?>" alt="Kop SD Negeri 3 Mekarsari"
+             style="width:100%;height:auto;display:block;margin:0 auto;">
+    </div>
+
     <!-- ═══ 1. HEADER IDENTITAS SISWA ═══ -->
     <table class="rapor-header-tbl">
         <tr>

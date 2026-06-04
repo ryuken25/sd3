@@ -33,6 +33,16 @@
     </a>
 </div>
 
+<div class="alert alert-info border-0 shadow-sm fs-6 mb-4" role="alert">
+    <div class="fw-bold mb-1"><i class="bi bi-calculator me-2"></i>Rumus Perhitungan Nilai Agregat</div>
+    <div>
+        <strong>KKM aktif:</strong>
+        <?= isset($kkm['nilai_kkm']) ? number_format((float) $kkm['nilai_kkm'], 0) : '70 (default)' ?>.
+        &nbsp;|&nbsp; <strong>Rata-Rata Harian</strong> = (Tugas + Ulangan) / 2.
+        &nbsp;|&nbsp; <strong>Nilai Proyeksi</strong> = (Rata-Rata Harian &times; 40%) + (UTS &times; 30%) + (UAS &times; 30%).
+    </div>
+</div>
+
 <div class="card border-0 shadow-sm">
     <div class="card-body">
         <?php if (empty($siswa)): ?>
@@ -151,13 +161,6 @@
                             <?php endforeach; ?>
                         </tbody>
                     </table>
-                </div>
-
-                <div class="alert alert-info small mt-3">
-                    <strong>KKM aktif:</strong>
-                    <?= isset($kkm['nilai_kkm']) ? number_format((float) $kkm['nilai_kkm'], 0) : '70 (default)' ?>.
-                    Rata-Rata Harian = (Tugas + Ulangan) / 2. Nilai Proyeksi = (Rata-Rata Harian × 40%) + (UTS × 30%) + (UAS
-                    × 30%).
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
