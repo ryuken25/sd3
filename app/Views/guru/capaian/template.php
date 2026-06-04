@@ -8,7 +8,11 @@
 <a href="<?= base_url('guru/capaian-kompetensi') ?>"><i class="bi bi-bookmark-check me-2"></i> Capaian Kompetensi</a>
 <a href="<?= base_url('guru/template-capaian') ?>" class="active"><i class="bi bi-card-list me-2"></i> Template Capaian</a>
 <a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir</a>
-<a href="<?= base_url('guru/wali-kelas') ?>"><i class="bi bi-person-vcard me-2"></i> Wali Kelas</a>
+<a href="<?= base_url('guru/nilai-akhir/rekap-remedial') ?>"><i class="bi bi-list-check me-2"></i> Rekap Remedial</a>
+<div class="sidebar-heading mt-3">Wali Kelas</div>
+<a href="<?= base_url('guru/wali-kelas') ?>"><i class="bi bi-people-fill me-2"></i> Anak Wali Kelas</a>
+<div class="sidebar-heading mt-3">Lainnya</div>
+<a href="<?= base_url('guru/request-buka-nilai') ?>"><i class="bi bi-unlock me-2"></i> Permintaan Buka Nilai</a>
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>

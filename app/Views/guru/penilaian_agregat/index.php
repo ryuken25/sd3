@@ -4,10 +4,9 @@
 <div class="sidebar-heading">Menu Utama</div>
 <a href="<?= base_url('guru/dashboard') ?>"><i class="bi bi-speedometer2 me-2"></i> Dashboard</a>
 <div class="sidebar-heading mt-3">Input Nilai</div>
-<a href="<?= base_url('guru/penilaian-agregat') ?>" class="active"><i class="bi bi-files me-2"></i> Penilaian
+<a href="<?= base_url('guru/penilaian-agregat') ?>" class="active"><i class="bi bi-files me-2"></i> Penilaian Agregat</a>
 <a href="<?= base_url('guru/capaian-kompetensi') ?>"><i class="bi bi-bookmark-check me-2"></i> Capaian Kompetensi</a>
 <a href="<?= base_url('guru/template-capaian') ?>"><i class="bi bi-card-list me-2"></i> Template Capaian</a>
-    Agregat</a>
 <a href="<?= base_url('guru/nilai-akhir') ?>"><i class="bi bi-calculator me-2"></i> Nilai Akhir</a>
 <a href="<?= base_url('guru/nilai-akhir/rekap-remedial') ?>"><i class="bi bi-list-check me-2"></i> Rekap Remedial</a>
 <div class="sidebar-heading mt-3">Wali Kelas</div>
