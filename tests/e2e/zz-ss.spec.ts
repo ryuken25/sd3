@@ -9,5 +9,11 @@ test('rapor admin detail — verify kop centered + no shadow', async ({ page }) 
   await page.goto('/admin/rapor/preview/244/5');
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(400);
+  // Full page (untuk konteks)
   await page.screenshot({ path: 'hasil/ss.png', fullPage: true });
+  // Crop area kop (header rapor) saja untuk verifikasi detail
+  const kop = page.locator('.rapor-kop');
+  if (await kop.count()) {
+    await kop.screenshot({ path: 'hasil/ss-kop.png' });
+  }
 });
