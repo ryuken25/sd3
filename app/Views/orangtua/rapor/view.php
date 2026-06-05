@@ -57,7 +57,7 @@
     </div>
 </div>
 
-<div class="card border-0 shadow-sm">
+<div class="card border-0">
     <div class="card-body p-4 p-md-5">
         <?= view('rapor/_full_layout', array_merge(get_defined_vars(), [
             'showBadgeOnline'  => true,
