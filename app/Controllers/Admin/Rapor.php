@@ -29,14 +29,14 @@ class Rapor extends BaseController
         $rapor_data = null;
         if ($filter_ta) {
             $filterTaId = (int) $filter_ta;
+            // Pasca merge: kolom remedial (tindak_lanjut, status_remedial) inline di
+            // tabel `nilai`. Tidak perlu JOIN ke remedial lagi.
             $remedialSubQuery = "(
-                SELECT COUNT(*)
-                FROM nilai_akhir
-                INNER JOIN remedial ON remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir
-                WHERE nilai_akhir.id_siswa = siswa.id_siswa
-                  AND nilai_akhir.id_tahun_ajaran = {$filterTaId}
-                  AND nilai_akhir.status_kelulusan = 'Remedial'
-                  AND (remedial.tindak_lanjut IS NULL OR TRIM(remedial.tindak_lanjut) = '')
+                SELECT COUNT(*) FROM nilai
+                WHERE nilai.id_siswa = siswa.id_siswa
+                  AND nilai.id_tahun_ajaran = {$filterTaId}
+                  AND nilai.status_kelulusan = 'Remedial'
+                  AND (nilai.tindak_lanjut IS NULL OR TRIM(nilai.tindak_lanjut) = '')
             ) AS remedial_belum_lengkap";
 
             $builder = $siswaModel
@@ -255,12 +255,17 @@ class Rapor extends BaseController
             ->where('id_tahun_ajaran', $idTahunAjaran)
             ->first();
 
+        // Pasca merge: nilai_akhir + remedial inline di tabel `nilai`. Hapus join ke
+        // tabel remedial; kolom status_remedial/tindak_lanjut langsung dari nilai.
+        $nilaiSelect = 'mata_pelajaran.id_mapel, mata_pelajaran.nama_mapel, mata_pelajaran.kelompok, '
+            . 'nilai.id_nilai, nilai.nilai_akhir, nilai.nilai_huruf, nilai.status_kelulusan, '
+            . 'kkm.nilai_kkm, nilai.status_remedial, nilai.tindak_lanjut';
+
         $nilaiRows = $db->table('mata_pelajaran')
-            ->select('mata_pelajaran.id_mapel, mata_pelajaran.nama_mapel, mata_pelajaran.kelompok, nilai_akhir.id_nilai_akhir, nilai_akhir.nilai_akhir, nilai_akhir.nilai_huruf, nilai_akhir.status_kelulusan, kkm.nilai_kkm, remedial.id_remedial, remedial.status_remedial, remedial.tindak_lanjut')
+            ->select($nilaiSelect)
             ->join('mapel_kelas', 'mapel_kelas.id_mapel = mata_pelajaran.id_mapel AND mapel_kelas.id_kelas = ' . (int) $siswa['id_kelas'], 'inner')
-            ->join('nilai_akhir', 'nilai_akhir.id_mapel = mata_pelajaran.id_mapel AND nilai_akhir.id_siswa = ' . $idSiswa . ' AND nilai_akhir.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
+            ->join('nilai', 'nilai.id_mapel = mata_pelajaran.id_mapel AND nilai.id_siswa = ' . $idSiswa . ' AND nilai.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
             ->join('kkm', 'kkm.id_mapel = mata_pelajaran.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
-            ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
             ->orderBy('mata_pelajaran.kelompok', 'ASC')
             ->orderBy('mata_pelajaran.nama_mapel', 'ASC')
             ->get()
@@ -268,12 +273,11 @@ class Rapor extends BaseController
 
         if (empty($nilaiRows)) {
             $nilaiRows = $db->table('mata_pelajaran')
-                ->select('mata_pelajaran.id_mapel, mata_pelajaran.nama_mapel, mata_pelajaran.kelompok, nilai_akhir.id_nilai_akhir, nilai_akhir.nilai_akhir, nilai_akhir.nilai_huruf, nilai_akhir.status_kelulusan, kkm.nilai_kkm, remedial.id_remedial, remedial.status_remedial, remedial.tindak_lanjut')
-                ->join('nilai_akhir', 'nilai_akhir.id_mapel = mata_pelajaran.id_mapel AND nilai_akhir.id_siswa = ' . $idSiswa . ' AND nilai_akhir.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
+                ->select($nilaiSelect)
+                ->join('nilai', 'nilai.id_mapel = mata_pelajaran.id_mapel AND nilai.id_siswa = ' . $idSiswa . ' AND nilai.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
                 ->join('kkm', 'kkm.id_mapel = mata_pelajaran.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . $idTahunAjaran, 'left')
-                ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
-                ->where('nilai_akhir.id_siswa', $idSiswa)
-                ->where('nilai_akhir.id_tahun_ajaran', $idTahunAjaran)
+                ->where('nilai.id_siswa', $idSiswa)
+                ->where('nilai.id_tahun_ajaran', $idTahunAjaran)
                 ->orderBy('mata_pelajaran.kelompok', 'ASC')
                 ->orderBy('mata_pelajaran.nama_mapel', 'ASC')
                 ->get()

@@ -69,7 +69,7 @@ class SD3_RaporIsiSeeder extends Seeder
         $kokoCount    = $this->seedKokurikuler($taId);
         $finalCount   = $this->finalisasiKelas36($taId);
 
-        echo "   ✓ nilai_capaian_kompetensi : {$cpCount} record (semua TA)\n";
+        echo "   ✓ nilai.narasi (CP)         : {$cpCount} baris di-isi (semua TA)\n";
         echo "   ✓ rapor.catatan_wali_kelas : {$catatanCount} rapor di-update (semua TA)\n";
         echo "   ✓ siswa_ekstrakurikuler    : {$ekskulCnt} record (TA aktif)\n";
         echo "   ✓ siswa_kokurikuler_dimensi: {$kokoCount} record (TA aktif)\n";
@@ -77,8 +77,13 @@ class SD3_RaporIsiSeeder extends Seeder
     }
 
     /**
-     * CP per nilai_akhir untuk SEMUA TA. Mapel/fase tanpa master CP pakai
-     * fallback: master CP mapel sama fase lain → lalu deskripsi_custom generik.
+     * Narasi CP per baris nilai (semua TA). Pasca merge tabel `nilai`:
+     * langsung tulis hasil rakit ke kolom `nilai.narasi` (sumber tunggal),
+     * memakai logika yang identik dengan RaporNarrativeService::generateNarasiCP()
+     * supaya tampilan rapor demo persis seperti sebelum refactor.
+     *
+     * Mapel/fase tanpa master CP pakai fallback: master CP mapel sama fase lain
+     * → deskripsi_custom generik. Tetap deterministik per id_siswa.
      */
     private function seedCapaian(): int
     {
@@ -91,25 +96,25 @@ class SD3_RaporIsiSeeder extends Seeder
             ->get()->getResultArray();
         $byMapelFase = [];
         $byMapel     = [];
+        $descById    = [];
         foreach ($masterRows as $m) {
             $byMapelFase[$m['id_mapel'] . '|' . $m['fase']][] = (int) $m['id_master_cp'];
             $byMapel[(int) $m['id_mapel']][] = (int) $m['id_master_cp'];
+            $descById[(int) $m['id_master_cp']] = (string) ($m['deskripsi'] ?? '');
         }
 
-        // Semua nilai_akhir + tingkat kelas siswa (untuk tentukan fase).
-        $rows = $db->table('nilai_akhir na')
-            ->select('na.id_nilai_akhir, na.id_mapel, na.id_siswa, k.tingkat')
-            ->join('siswa s', 's.id_siswa = na.id_siswa')
+        // Semua baris `nilai` yang punya nilai_akhir + tingkat kelas siswa.
+        $rows = $db->table('nilai n')
+            ->select('n.id_nilai, n.id_mapel, n.id_siswa, k.tingkat, n.narasi')
+            ->join('siswa s', 's.id_siswa = n.id_siswa')
             ->join('kelas k', 'k.id_kelas = s.id_kelas')
+            ->where('n.nilai_akhir IS NOT NULL', null, false)
             ->get()->getResultArray();
 
         $inserted = 0;
         foreach ($rows as $r) {
-            // Idempotent: skip kalau nilai_akhir ini sudah punya CP.
-            $exists = $db->table('nilai_capaian_kompetensi')
-                ->where('id_nilai_akhir', $r['id_nilai_akhir'])
-                ->countAllResults();
-            if ($exists > 0) {
+            // Idempotent: skip kalau narasi sudah terisi (di-bake migrasi atau seeder sebelumnya).
+            if (trim((string) ($r['narasi'] ?? '')) !== '') {
                 continue;
             }
 
@@ -117,7 +122,6 @@ class SD3_RaporIsiSeeder extends Seeder
             $fase    = $tingkat <= 2 ? 'A' : ($tingkat <= 4 ? 'B' : 'C');
             $mapelId = (int) $r['id_mapel'];
 
-            // Prioritas: master CP fase tepat → master CP fase lain → custom.
             $cpIds  = $byMapelFase[$mapelId . '|' . $fase] ?? ($byMapel[$mapelId] ?? []);
             $useCustom = empty($cpIds);
             $items  = $useCustom ? $this->cpCustomFallback : $cpIds;
@@ -126,17 +130,29 @@ class SD3_RaporIsiSeeder extends Seeder
             $offset = (int) $r['id_siswa'] % $total;
             $batasTercapai = (int) ceil($total * 0.6); // ~60% tercapai, sisanya perlu peningkatan
 
+            $tercapai = [];
+            $perlu    = [];
             foreach ($items as $i => $item) {
-                $pos    = ($i + $offset) % $total;
-                $status = $pos < $batasTercapai ? 'tercapai_sangat_baik' : 'perlu_peningkatan';
-                $db->table('nilai_capaian_kompetensi')->insert([
-                    'id_nilai_akhir'   => $r['id_nilai_akhir'],
-                    'master_cp_id'     => $useCustom ? null : $item,
-                    'deskripsi_custom' => $useCustom ? $item : null,
-                    'status'           => $status,
-                    'created_at'       => date('Y-m-d H:i:s'),
-                    'updated_at'       => date('Y-m-d H:i:s'),
-                ]);
+                $deskripsi = $useCustom ? $item : ($descById[$item] ?? '');
+                $deskripsi = trim((string) $deskripsi);
+                if ($deskripsi === '') continue;
+
+                $pos = ($i + $offset) % $total;
+                if ($pos < $batasTercapai) {
+                    $tercapai[] = $deskripsi;
+                } else {
+                    $perlu[] = $deskripsi;
+                }
+            }
+
+            $bagian1 = $tercapai ? 'Mencapai Kompetensi dengan sangat baik dalam hal ' . implode(', ', $tercapai) . '. ' : '';
+            $bagian2 = $perlu    ? 'Perlu peningkatan dalam hal ' . implode(', ', $perlu) . '.' : '';
+            $narasi  = trim($bagian1 . $bagian2);
+
+            if ($narasi !== '') {
+                $db->table('nilai')
+                    ->where('id_nilai', (int) $r['id_nilai'])
+                    ->update(['narasi' => $narasi, 'updated_at' => date('Y-m-d H:i:s')]);
                 $inserted++;
             }
         }

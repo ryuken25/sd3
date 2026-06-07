@@ -36,20 +36,20 @@ class RaporModel extends Model
 
     public function hasFinalGrades(int $idSiswa, int $idTahunAjaran): bool
     {
-        return $this->db->table('nilai_akhir')
+        return $this->db->table('nilai')
             ->where('id_siswa', $idSiswa)
             ->where('id_tahun_ajaran', $idTahunAjaran)
+            ->where('nilai_akhir IS NOT NULL', null, false)
             ->countAllResults() > 0;
     }
 
     public function hasIncompleteRemedial(int $idSiswa, int $idTahunAjaran): bool
     {
-        return $this->db->table('nilai_akhir')
-            ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir')
-            ->where('nilai_akhir.id_siswa', $idSiswa)
-            ->where('nilai_akhir.id_tahun_ajaran', $idTahunAjaran)
-            ->where('nilai_akhir.status_kelulusan', 'Remedial')
-            ->where("(remedial.tindak_lanjut IS NULL OR TRIM(remedial.tindak_lanjut) = '')", null, false)
+        return $this->db->table('nilai')
+            ->where('id_siswa', $idSiswa)
+            ->where('id_tahun_ajaran', $idTahunAjaran)
+            ->where('status_kelulusan', 'Remedial')
+            ->where("(tindak_lanjut IS NULL OR TRIM(tindak_lanjut) = '')", null, false)
             ->countAllResults() > 0;
     }
 
@@ -127,49 +127,37 @@ class RaporModel extends Model
                 $idMapel = (int) $mapel['id_mapel'];
                 $namaMapel = (string) $mapel['nama_mapel'];
 
-                $nilaiSiswa = $this->db->table('nilai_siswa')
+                // Satu query: ambil baris nilai gabungan (komponen + nilai_akhir + remedial)
+                $nilaiRow = $this->db->table('nilai')
                     ->where('id_siswa', $idSiswa)
                     ->where('id_mapel', $idMapel)
                     ->where('id_tahun_ajaran', $idTahunAjaran)
                     ->get()
                     ->getRowArray();
 
-                if (!$nilaiSiswa) {
+                if (!$nilaiRow) {
                     $issues[] = "{$namaSiswa} belum memiliki nilai {$namaMapel}.";
-                } else {
-                    $missingComponents = [];
-                    foreach (['nilai_tugas' => 'tugas', 'nilai_ulangan' => 'ulangan', 'nilai_uts' => 'UTS', 'nilai_uas' => 'UAS'] as $field => $label) {
-                        if ($nilaiSiswa[$field] === null || $nilaiSiswa[$field] === '') {
-                            $missingComponents[] = $label;
-                        }
-                    }
-
-                    if (!empty($missingComponents)) {
-                        $issues[] = "{$namaSiswa} belum lengkap nilai {$namaMapel} (" . implode(', ', $missingComponents) . ").";
-                    }
+                    continue;
                 }
 
-                $nilaiAkhir = $this->db->table('nilai_akhir')
-                    ->where('id_siswa', $idSiswa)
-                    ->where('id_mapel', $idMapel)
-                    ->where('id_tahun_ajaran', $idTahunAjaran)
-                    ->get()
-                    ->getRowArray();
+                $missingComponents = [];
+                foreach (['nilai_tugas' => 'tugas', 'nilai_ulangan' => 'ulangan', 'nilai_uts' => 'UTS', 'nilai_uas' => 'UAS'] as $field => $label) {
+                    if ($nilaiRow[$field] === null || $nilaiRow[$field] === '') {
+                        $missingComponents[] = $label;
+                    }
+                }
+                if (!empty($missingComponents)) {
+                    $issues[] = "{$namaSiswa} belum lengkap nilai {$namaMapel} (" . implode(', ', $missingComponents) . ").";
+                }
 
-                if (!$nilaiAkhir || $nilaiAkhir['nilai_akhir'] === null || trim((string) ($nilaiAkhir['status_kelulusan'] ?? '')) === '') {
+                if ($nilaiRow['nilai_akhir'] === null || trim((string) ($nilaiRow['status_kelulusan'] ?? '')) === '') {
                     $issues[] = "{$namaSiswa} belum memiliki nilai akhir {$namaMapel}.";
                     continue;
                 }
 
-                if (($nilaiAkhir['status_kelulusan'] ?? null) === 'Remedial') {
-                    $remedial = $this->db->table('remedial')
-                        ->where('id_nilai_akhir', (int) $nilaiAkhir['id_nilai_akhir'])
-                        ->get()
-                        ->getRowArray();
-
-                    if (!$remedial || trim((string) ($remedial['tindak_lanjut'] ?? '')) === '') {
-                        $issues[] = "{$namaSiswa} belum memiliki tindak lanjut remedial untuk {$namaMapel}.";
-                    }
+                if (($nilaiRow['status_kelulusan'] ?? null) === 'Remedial'
+                    && trim((string) ($nilaiRow['tindak_lanjut'] ?? '')) === '') {
+                    $issues[] = "{$namaSiswa} belum memiliki tindak lanjut remedial untuk {$namaMapel}.";
                 }
             }
         }
@@ -207,10 +195,11 @@ class RaporModel extends Model
 
         $nilaiAkhirRows = empty($requiredMapelIds)
             ? []
-            : $this->db->table('nilai_akhir')
+            : $this->db->table('nilai')
                 ->where('id_siswa', $idSiswa)
                 ->where('id_tahun_ajaran', $idTahunAjaran)
                 ->whereIn('id_mapel', $requiredMapelIds)
+                ->where('nilai_akhir IS NOT NULL', null, false)
                 ->get()
                 ->getResultArray();
 
@@ -225,13 +214,12 @@ class RaporModel extends Model
 
         $incompleteRemedial = empty($nilaiAkhirRows)
             ? 0
-            : $this->db->table('nilai_akhir')
-                ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
-                ->where('nilai_akhir.id_siswa', $idSiswa)
-                ->where('nilai_akhir.id_tahun_ajaran', $idTahunAjaran)
-                ->whereIn('nilai_akhir.id_mapel', $requiredMapelIds)
-                ->where('nilai_akhir.status_kelulusan', 'Remedial')
-                ->where('(remedial.id_remedial IS NULL OR remedial.tindak_lanjut IS NULL OR TRIM(remedial.tindak_lanjut) = \'\')', null, false)
+            : $this->db->table('nilai')
+                ->where('id_siswa', $idSiswa)
+                ->where('id_tahun_ajaran', $idTahunAjaran)
+                ->whereIn('id_mapel', $requiredMapelIds)
+                ->where('status_kelulusan', 'Remedial')
+                ->where("(tindak_lanjut IS NULL OR TRIM(tindak_lanjut) = '')", null, false)
                 ->countAllResults();
 
         if ($incompleteRemedial > 0) {

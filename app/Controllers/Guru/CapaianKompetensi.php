@@ -120,11 +120,9 @@ class CapaianKompetensi extends BaseController
                 default => '',
             };
 
-            // Narasi existing: tabel baru → fallback legacy nilai_akhir.narasi_cp.
+            // Pasca merge: narasi tersimpan di kolom nilai.narasi (sumber tunggal).
+            // narasi_cp legacy sudah ikut di-bake ke kolom narasi saat migrasi.
             $narasi = $narasiBySiswa[$s['id_siswa']] ?? '';
-            if ($narasi === '') {
-                $narasi = (string) ($na['narasi_cp'] ?? '');
-            }
 
             $perSiswa[$s['id_siswa']] = [
                 'siswa'        => $s,

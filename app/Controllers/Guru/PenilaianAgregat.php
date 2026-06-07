@@ -6,11 +6,8 @@ use App\Controllers\BaseController;
 use App\Libraries\AcademicScoreService;
 use App\Models\KelasModel;
 use App\Models\KkmModel;
-use App\Models\MapelKelasModel;
 use App\Models\MataPelajaranModel;
-use App\Models\NilaiAkhirModel;
 use App\Models\NilaiSiswaModel;
-use App\Models\RemedialModel;
 use App\Models\SiswaModel;
 use App\Models\TahunAjaranModel;
 
@@ -76,26 +73,19 @@ class PenilaianAgregat extends BaseController
             ->orderBy('nama_siswa', 'ASC')
             ->findAll();
 
+        // Pasca merge: komponen + nilai_akhir + remedial sudah di satu baris `nilai`.
+        // View masih pakai dua variabel terpisah (nilai_siswa_existing & remedial_existing)
+        // supaya layout tidak berubah; isi keduanya dari row gabungan yang sama.
         $nilaiSiswaExisting = [];
-        $remedialExisting = [];
+        $remedialExisting   = [];
         foreach ($siswa as $s) {
-            $nilai = $nilaiSiswaModel->where([
-                'id_siswa' => $s['id_siswa'],
-                'id_mapel' => $id_mapel,
-                'id_tahun_ajaran' => $id_tahun_ajaran
-            ])->first();
-            $nilaiSiswaExisting[$s['id_siswa']] = $nilai;
-
-            $nilaiAkhir = (new NilaiAkhirModel())->where([
-                'id_siswa' => $s['id_siswa'],
-                'id_mapel' => $id_mapel,
-                'id_tahun_ajaran' => $id_tahun_ajaran,
-            ])->first();
-
-            if ($nilaiAkhir) {
-                $remedialExisting[$s['id_siswa']] = (new RemedialModel())
-                    ->where('id_nilai_akhir', $nilaiAkhir['id_nilai_akhir'])
-                    ->first();
+            $row = $nilaiSiswaModel->findByKey((int) $s['id_siswa'], (int) $id_mapel, (int) $id_tahun_ajaran);
+            $nilaiSiswaExisting[$s['id_siswa']] = $row;
+            if ($row && ($row['status_remedial'] ?? null) !== null) {
+                $remedialExisting[$s['id_siswa']] = [
+                    'tindak_lanjut'   => $row['tindak_lanjut'] ?? null,
+                    'status_remedial' => $row['status_remedial'] ?? null,
+                ];
             }
         }
 
@@ -146,34 +136,33 @@ class PenilaianAgregat extends BaseController
             return $response;
         }
 
-        $nilaiSiswaModel = new NilaiSiswaModel();
-        $nilaiAkhirModel = new NilaiAkhirModel();
-        $remedialModel = new RemedialModel();
-        $kkmModel = new KkmModel();
-        $scoreService = new AcademicScoreService();
+        // Pasca merge: cukup satu upsert ke tabel `nilai` per (siswa, mapel, TA).
+        // Pakai DB builder langsung karena payload menggabungkan kolom yang
+        // tersebar di beberapa Model facade (allowedFields-nya subset).
+        $kkmModel        = new KkmModel();
+        $scoreService    = new AcademicScoreService();
         $db = \Config\Database::connect();
+        $nilaiTbl = $db->table('nilai');
         $db->transStart();
 
         try {
             foreach ($data as $item) {
-                $id_siswa = $item['id_siswa'];
-                $id_mapel = $item['id_mapel'];
-                $id_tahun_ajaran = $item['id_tahun_ajaran'];
+                $id_siswa        = (int) $item['id_siswa'];
+                $id_mapel        = (int) $item['id_mapel'];
+                $id_tahun_ajaran = (int) $item['id_tahun_ajaran'];
 
-                // Extract and sanitize values
-                $nilai_tugas = isset($item['nilai_tugas']) && $item['nilai_tugas'] !== '' ? $item['nilai_tugas'] : null;
+                $nilai_tugas   = isset($item['nilai_tugas'])   && $item['nilai_tugas']   !== '' ? $item['nilai_tugas']   : null;
                 $nilai_ulangan = isset($item['nilai_ulangan']) && $item['nilai_ulangan'] !== '' ? $item['nilai_ulangan'] : null;
-                $nilai_uts = isset($item['nilai_uts']) && $item['nilai_uts'] !== '' ? $item['nilai_uts'] : null;
-                $nilai_uas = isset($item['nilai_uas']) && $item['nilai_uas'] !== '' ? $item['nilai_uas'] : null;
-                $tindakLanjut = trim((string) ($item['tindak_lanjut'] ?? ''));
+                $nilai_uts     = isset($item['nilai_uts'])     && $item['nilai_uts']     !== '' ? $item['nilai_uts']     : null;
+                $nilai_uas     = isset($item['nilai_uas'])     && $item['nilai_uas']     !== '' ? $item['nilai_uas']     : null;
+                $tindakLanjut  = trim((string) ($item['tindak_lanjut'] ?? ''));
 
-                $siswaRow = (new SiswaModel())->find((int) $id_siswa);
-                if (!$siswaRow || !$this->mapelBelongsToClass((int) $siswaRow['id_kelas'], (int) $id_mapel)) {
+                $siswaRow = (new SiswaModel())->find($id_siswa);
+                if (!$siswaRow || !$this->mapelBelongsToClass((int) $siswaRow['id_kelas'], $id_mapel)) {
                     $db->transRollback();
                     return redirect()->back()->with('error', 'Simpan nilai ditolak karena mata pelajaran tidak sesuai kelas siswa.');
                 }
 
-                // Validate ranges (0-100)
                 foreach (['nilai_tugas' => $nilai_tugas, 'nilai_ulangan' => $nilai_ulangan, 'nilai_uts' => $nilai_uts, 'nilai_uas' => $nilai_uas] as $label => $val) {
                     if ($val !== null && (!is_numeric($val) || $val < 0 || $val > 100)) {
                         $db->transRollback();
@@ -181,12 +170,12 @@ class PenilaianAgregat extends BaseController
                     }
                 }
 
-                $rata_rata = $scoreService->calculateDailyAverage($nilai_tugas, $nilai_ulangan);
+                $rata_rata     = $scoreService->calculateDailyAverage($nilai_tugas, $nilai_ulangan);
                 $nilaiProyeksi = $scoreService->calculateFinalScore($nilai_tugas, $nilai_ulangan, $nilai_uts, $nilai_uas);
 
                 $kkm = $kkmModel->where([
-                    'id_kelas' => $this->request->getPost('id_kelas'),
-                    'id_mapel' => $id_mapel,
+                    'id_kelas'        => $this->request->getPost('id_kelas'),
+                    'id_mapel'        => $id_mapel,
                     'id_tahun_ajaran' => $id_tahun_ajaran,
                 ])->first();
                 $nilaiKkm = isset($kkm['nilai_kkm']) ? (float) $kkm['nilai_kkm'] : 70.0;
@@ -196,68 +185,41 @@ class PenilaianAgregat extends BaseController
                     return redirect()->back()->with('error', 'Tindak lanjut wajib diisi untuk setiap siswa dengan nilai proyeksi di bawah KKM.');
                 }
 
-                $existing = $nilaiSiswaModel->where([
-                    'id_siswa' => $id_siswa,
-                    'id_mapel' => $id_mapel,
-                    'id_tahun_ajaran' => $id_tahun_ajaran
-                ])->first();
-
+                // Satu payload gabungan: komponen + nilai_akhir + remedial.
+                // <KKM → set tindak_lanjut + status_remedial ('Belum' kalau kosong, else 'Sedang Proses').
+                // >=KKM → kedua kolom remedial NULL (pengganti DELETE FROM remedial).
                 $payload = [
-                    'id_siswa' => $id_siswa,
-                    'id_mapel' => $id_mapel,
-                    'id_tahun_ajaran' => $id_tahun_ajaran,
-                    'nilai_tugas' => $nilai_tugas,
-                    'nilai_ulangan' => $nilai_ulangan,
+                    'id_siswa'         => $id_siswa,
+                    'id_mapel'         => $id_mapel,
+                    'id_tahun_ajaran'  => $id_tahun_ajaran,
+                    'nilai_tugas'      => $nilai_tugas,
+                    'nilai_ulangan'    => $nilai_ulangan,
                     'rata_rata_harian' => $rata_rata,
-                    'nilai_uts' => $nilai_uts,
-                    'nilai_uas' => $nilai_uas,
+                    'nilai_uts'        => $nilai_uts,
+                    'nilai_uas'        => $nilai_uas,
+                    'nilai_akhir'      => $nilaiProyeksi,
+                    'nilai_huruf'      => $scoreService->determineLetter($nilaiProyeksi),
+                    'status_kelulusan' => $scoreService->determineStatus($nilaiProyeksi, $nilaiKkm),
+                    'tindak_lanjut'    => $nilaiProyeksi < $nilaiKkm ? ($tindakLanjut !== '' ? $tindakLanjut : null) : null,
+                    'status_remedial'  => $nilaiProyeksi < $nilaiKkm ? ($tindakLanjut !== '' ? 'Sedang Proses' : 'Belum') : null,
+                    'updated_at'       => date('Y-m-d H:i:s'),
                 ];
+
+                $existing = $nilaiTbl
+                    ->getWhere([
+                        'id_siswa'        => $id_siswa,
+                        'id_mapel'        => $id_mapel,
+                        'id_tahun_ajaran' => $id_tahun_ajaran,
+                    ])
+                    ->getRowArray();
 
                 if ($existing) {
-                    $nilaiSiswaModel->update($existing['id_nilai_siswa'], $payload);
+                    $db->table('nilai')
+                        ->where('id_nilai', (int) $existing['id_nilai'])
+                        ->update($payload);
                 } else {
-                    $nilaiSiswaModel->insert($payload);
-                }
-
-                $existingNilaiAkhir = $nilaiAkhirModel->where([
-                    'id_siswa' => $id_siswa,
-                    'id_mapel' => $id_mapel,
-                    'id_tahun_ajaran' => $id_tahun_ajaran,
-                ])->first();
-
-                $nilaiAkhirPayload = [
-                    'id_siswa' => $id_siswa,
-                    'id_mapel' => $id_mapel,
-                    'id_tahun_ajaran' => $id_tahun_ajaran,
-                    'nilai_akhir' => $nilaiProyeksi,
-                    'nilai_huruf' => $scoreService->determineLetter($nilaiProyeksi),
-                    'status_kelulusan' => $scoreService->determineStatus($nilaiProyeksi, $nilaiKkm),
-                ];
-
-                if ($existingNilaiAkhir) {
-                    $nilaiAkhirModel->update($existingNilaiAkhir['id_nilai_akhir'], $nilaiAkhirPayload);
-                    $nilaiAkhirId = (int) $existingNilaiAkhir['id_nilai_akhir'];
-                } else {
-                    $nilaiAkhirModel->insert($nilaiAkhirPayload);
-                    $nilaiAkhirId = (int) $nilaiAkhirModel->getInsertID();
-                }
-
-                $existingRemedial = $remedialModel->where('id_nilai_akhir', $nilaiAkhirId)->first();
-
-                if ($nilaiProyeksi < $nilaiKkm) {
-                    $remedialPayload = [
-                        'id_nilai_akhir' => $nilaiAkhirId,
-                        'tindak_lanjut' => $tindakLanjut,
-                        'status_remedial' => $tindakLanjut === '' ? 'Belum' : 'Sedang Proses',
-                    ];
-
-                    if ($existingRemedial) {
-                        $remedialModel->update($existingRemedial['id_remedial'], $remedialPayload);
-                    } else {
-                        $remedialModel->insert($remedialPayload);
-                    }
-                } elseif ($existingRemedial) {
-                    $remedialModel->delete($existingRemedial['id_remedial']);
+                    $payload['created_at'] = $payload['updated_at'];
+                    $db->table('nilai')->insert($payload);
                 }
             }
 

@@ -5,7 +5,6 @@ namespace App\Controllers\OrangTua;
 use App\Controllers\BaseController;
 use App\Models\SiswaModel;
 use App\Models\NilaiAkhirModel;
-use App\Models\RemedialModel;
 use App\Models\MataPelajaranModel;
 use App\Models\TahunAjaranModel;
 use App\Models\RaporModel;
@@ -44,10 +43,12 @@ class Dashboard extends BaseController
                 $ringkasan['rapor_tersedia'] = !empty($rapor);
 
                 if ($ringkasan['rapor_tersedia'] && ($tahunAjaranAktif['status_pengisian'] ?? null) === 'Kunci') {
-                    $nilaiAkhir = $nilaiAkhirModel->select('nilai_akhir.*')
-                        ->join('mapel_kelas', 'mapel_kelas.id_mapel = nilai_akhir.id_mapel AND mapel_kelas.id_kelas = ' . (int) $siswa['id_kelas'])
-                        ->where('id_siswa', $siswa['id_siswa'])
-                        ->where('id_tahun_ajaran', $tahunAjaranAktif['id_tahun_ajaran'])
+                    // Pasca merge: tabel `nilai` (bukan `nilai_akhir`).
+                    $nilaiAkhir = $nilaiAkhirModel->select('nilai.*')
+                        ->join('mapel_kelas', 'mapel_kelas.id_mapel = nilai.id_mapel AND mapel_kelas.id_kelas = ' . (int) $siswa['id_kelas'])
+                        ->where('nilai.id_siswa', $siswa['id_siswa'])
+                        ->where('nilai.id_tahun_ajaran', $tahunAjaranAktif['id_tahun_ajaran'])
+                        ->where('nilai.nilai_akhir IS NOT NULL', null, false)
                         ->findAll();
 
                     $ringkasan['total_mapel'] = count($nilaiAkhir);
@@ -90,7 +91,6 @@ class Dashboard extends BaseController
         }
 
         $nilaiAkhirModel = new NilaiAkhirModel();
-        $remedialModel = new RemedialModel();
         $mapelModel = new MataPelajaranModel();
         $tahunAjaranModel = new TahunAjaranModel();
         $kkmModel = new \App\Models\KkmModel();
@@ -134,16 +134,17 @@ class Dashboard extends BaseController
                 ->findAll();
             $kkmByMapel = array_column($allKkm, null, 'id_mapel');
 
-            $nilaiAkhirIds = array_column($allNilaiAkhir, 'id_nilai_akhir');
-            $allRemedial = !empty($nilaiAkhirIds)
-                ? $remedialModel->whereIn('id_nilai_akhir', $nilaiAkhirIds)->findAll()
-                : [];
-            $remedialByNilaiAkhir = array_column($allRemedial, null, 'id_nilai_akhir');
-
+            // Pasca merge: remedial inline di baris `nilai`. Tidak perlu query terpisah —
+            // baca status_remedial/tindak_lanjut langsung dari $nilaiAkhir.
             foreach ($mapel as $m) {
                 $nilaiAkhir = $nilaiAkhirByMapel[$m['id_mapel']] ?? null;
                 $kkm = $kkmByMapel[$m['id_mapel']] ?? null;
-                $remedial = $nilaiAkhir ? ($remedialByNilaiAkhir[$nilaiAkhir['id_nilai_akhir']] ?? null) : null;
+                $remedial = ($nilaiAkhir && ($nilaiAkhir['status_remedial'] ?? null) !== null)
+                    ? [
+                        'tindak_lanjut'   => $nilaiAkhir['tindak_lanjut'] ?? null,
+                        'status_remedial' => $nilaiAkhir['status_remedial'] ?? null,
+                    ]
+                    : null;
 
                 $nilaiData[] = [
                     'mapel' => $m,

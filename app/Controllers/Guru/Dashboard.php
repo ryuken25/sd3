@@ -37,11 +37,10 @@ class Dashboard extends BaseController
                 ->where('id_tahun_ajaran', $tahunAjaranAktif['id_tahun_ajaran'])
                 ->countAllResults();
 
-            // Count remedial cases
+            // Count remedial cases. Pasca merge: status_remedial inline di tabel `nilai`.
             $data['total_remedial'] = $remedialModel
-                ->join('nilai_akhir', 'nilai_akhir.id_nilai_akhir = remedial.id_nilai_akhir')
-                ->where('nilai_akhir.id_tahun_ajaran', $tahunAjaranAktif['id_tahun_ajaran'])
-                ->where('remedial.status_remedial', 'Belum')
+                ->where('id_tahun_ajaran', $tahunAjaranAktif['id_tahun_ajaran'])
+                ->where('status_remedial', 'Belum')
                 ->countAllResults();
         }
 

@@ -118,48 +118,32 @@ class SD3_NilaiSeeder extends Seeder
                             continue;
                         }
 
-                        // nilai_siswa (skip jika sudah ada)
-                        $existingNilai = $db->table('nilai_siswa')
+                        // Pasca merge: komponen + nilai_akhir + remedial digabung jadi
+                        // satu baris `nilai` per (siswa,mapel,TA). Idempotent: skip
+                        // bila kombinasi sudah ada lengkap dengan nilai_akhir.
+                        $existing = $db->table('nilai')
                             ->where('id_siswa', $siswaId)
                             ->where('id_mapel', $mapelId)
                             ->where('id_tahun_ajaran', $taId)
                             ->get()->getRow();
 
-                        if (!$existingNilai) {
+                        if ($existing && $existing->nilai_akhir !== null) {
+                            continue;
+                        }
+
+                        if ($existing) {
+                            $rataHari = (float) ($existing->rata_rata_harian ?? 0);
+                            $uts      = (float) ($existing->nilai_uts ?? 0);
+                            $uas      = (float) ($existing->nilai_uas ?? 0);
+                            $tugas    = (float) ($existing->nilai_tugas ?? 0);
+                            $ulangan  = (float) ($existing->nilai_ulangan ?? 0);
+                        } else {
                             $tugas    = $this->genNilai($kat, $siswaId, $mapelId, $taId, 'tugas');
                             $ulangan  = $this->genNilai($kat, $siswaId, $mapelId, $taId, 'ulangan');
                             $rataHari = round(($tugas + $ulangan) / 2, 2);
                             $uts      = $this->genNilai($kat, $siswaId, $mapelId, $taId, 'uts');
                             $uas      = $this->genNilai($kat, $siswaId, $mapelId, $taId, 'uas');
-
-                            $db->table('nilai_siswa')->insert([
-                                'id_siswa'         => $siswaId,
-                                'id_mapel'         => $mapelId,
-                                'id_tahun_ajaran'  => $taId,
-                                'nilai_tugas'      => $tugas,
-                                'nilai_ulangan'    => $ulangan,
-                                'rata_rata_harian' => $rataHari,
-                                'nilai_uts'        => $uts,
-                                'nilai_uas'        => $uas,
-                                'created_at'       => date('Y-m-d H:i:s'),
-                                'updated_at'       => date('Y-m-d H:i:s'),
-                            ]);
                             $totalNilai++;
-                        } else {
-                            $rataHari = (float) ($existingNilai->rata_rata_harian ?? 0);
-                            $uts      = (float) ($existingNilai->nilai_uts ?? 0);
-                            $uas      = (float) ($existingNilai->nilai_uas ?? 0);
-                        }
-
-                        // nilai_akhir (skip jika sudah ada)
-                        $existingAkhir = $db->table('nilai_akhir')
-                            ->where('id_siswa', $siswaId)
-                            ->where('id_mapel', $mapelId)
-                            ->where('id_tahun_ajaran', $taId)
-                            ->get()->getRow();
-
-                        if ($existingAkhir) {
-                            continue;
                         }
 
                         $kkmRow   = $db->table('kkm')
@@ -172,27 +156,33 @@ class SD3_NilaiSeeder extends Seeder
                         $akhir    = round(($rataHari * 0.4) + ($uts * 0.3) + ($uas * 0.3), 2);
                         $huruf    = $this->nilaiHuruf($akhir);
                         $status   = ($akhir >= $nilaiKkm) ? 'Tuntas' : 'Remedial';
+                        $isRemedial = $status === 'Remedial';
 
-                        $db->table('nilai_akhir')->insert([
+                        $payload = [
                             'id_siswa'         => $siswaId,
                             'id_mapel'         => $mapelId,
                             'id_tahun_ajaran'  => $taId,
+                            'nilai_tugas'      => $tugas,
+                            'nilai_ulangan'    => $ulangan,
+                            'rata_rata_harian' => $rataHari,
+                            'nilai_uts'        => $uts,
+                            'nilai_uas'        => $uas,
                             'nilai_akhir'      => $akhir,
                             'nilai_huruf'      => $huruf,
                             'status_kelulusan' => $status,
-                            'created_at'       => date('Y-m-d H:i:s'),
+                            'tindak_lanjut'    => $isRemedial ? 'Pengayaan dan latihan soal tambahan oleh guru kelas' : null,
+                            'status_remedial'  => $isRemedial ? 'Belum' : null,
                             'updated_at'       => date('Y-m-d H:i:s'),
-                        ]);
-                        $totalAkhir++;
+                        ];
 
-                        if ($status === 'Remedial') {
-                            $db->table('remedial')->insert([
-                                'id_nilai_akhir'  => $db->insertID(),
-                                'tindak_lanjut'   => 'Pengayaan dan latihan soal tambahan oleh guru kelas',
-                                'status_remedial' => 'Belum',
-                                'created_at'      => date('Y-m-d H:i:s'),
-                                'updated_at'      => date('Y-m-d H:i:s'),
-                            ]);
+                        if ($existing) {
+                            $db->table('nilai')->where('id_nilai', (int) $existing->id_nilai)->update($payload);
+                        } else {
+                            $payload['created_at'] = $payload['updated_at'];
+                            $db->table('nilai')->insert($payload);
+                        }
+                        $totalAkhir++;
+                        if ($isRemedial) {
                             $totalRemedial++;
                         }
                     }

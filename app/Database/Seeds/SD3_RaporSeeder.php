@@ -57,7 +57,8 @@ class SD3_RaporSeeder extends Seeder
                     continue;
                 }
 
-                $hasRemedial = $this->db->table('nilai_akhir')
+                // Pasca merge: status_kelulusan inline di tabel `nilai`.
+                $hasRemedial = $this->db->table('nilai')
                     ->where('id_siswa', $siswaId)
                     ->where('id_tahun_ajaran', $taId)
                     ->where('status_kelulusan', 'Remedial')

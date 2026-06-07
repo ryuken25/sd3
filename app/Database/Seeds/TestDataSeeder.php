@@ -43,21 +43,24 @@ class TestDataSeeder extends Seeder
         }
         $idSiswa = (int) $siswa['id_siswa'];
 
-        // Ambil satu nilai_akhir siswa tsb → set jadi borderline 75.
-        $na = $db->table('nilai_akhir')
+        // Pasca merge: tabel `nilai` (id_nilai). Ambil satu baris → set borderline 75.
+        $na = $db->table('nilai')
             ->where('id_siswa', $idSiswa)->where('id_tahun_ajaran', $taId)
-            ->orderBy('id_nilai_akhir', 'ASC')
+            ->where('nilai_akhir IS NOT NULL', null, false)
+            ->orderBy('id_nilai', 'ASC')
             ->get()->getRowArray();
 
         if ($na) {
-            $db->table('nilai_akhir')
-                ->where('id_nilai_akhir', (int) $na['id_nilai_akhir'])
+            $db->table('nilai')
+                ->where('id_nilai', (int) $na['id_nilai'])
                 ->update([
                     'nilai_akhir'        => 75,
                     'nilai_huruf'        => 'C',
                     'status_kelulusan'   => 'Tuntas',
                     'flag_borderline_75' => 1,
                     'catatan_remedial'   => 'Nilai 75 merupakan hasil remedial. Ananda perlu pendampingan tambahan pada materi terkait.',
+                    'tindak_lanjut'      => null,
+                    'status_remedial'    => null,
                     'updated_at'         => date('Y-m-d H:i:s'),
                 ]);
         }

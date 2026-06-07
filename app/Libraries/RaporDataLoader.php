@@ -6,7 +6,6 @@ use App\Models\CapaianNarasiModel;
 use App\Models\KelasModel;
 use App\Models\KokurikulerTemaModel;
 use App\Models\NilaiAkhirModel;
-use App\Models\NilaiCapaianKompetensiModel;
 use App\Models\RaporModel;
 use App\Models\SiswaEkstrakurikulerModel;
 use App\Models\SiswaKokurikulerDimensiModel;
@@ -57,7 +56,6 @@ class RaporDataLoader
         $taModel          = new TahunAjaranModel();
         $raporModel       = new RaporModel();
         $nilaiAkhirModel  = new NilaiAkhirModel();
-        $nilaiCpModel     = new NilaiCapaianKompetensiModel();
         $capaianNarasiModel = new CapaianNarasiModel();
         $temaModel        = new KokurikulerTemaModel();
         $siswaEkskulModel = new SiswaEkstrakurikulerModel();
@@ -87,30 +85,26 @@ class RaporDataLoader
         $waliUsername = (string) ($waliKelas['username'] ?? '');
         $waliNip      = self::NIP_GURU[$waliUsername] ?? '-';
 
-        // Mapel + nilai_akhir + narasi capaian kompetensi
+        // Pasca merge: nilai_akhir + komponen + narasi + remedial inline di tabel `nilai`.
+        // Hanya tampilkan baris yang punya nilai_akhir terisi (rapor butuh nilai final).
         $nilaiRows = $nilaiAkhirModel
-            ->select('nilai_akhir.*, mata_pelajaran.nama_mapel, mata_pelajaran.kode_mapel, kkm.nilai_kkm')
-            ->join('mata_pelajaran', 'mata_pelajaran.id_mapel = nilai_akhir.id_mapel')
-            ->join('kkm', 'kkm.id_mapel = nilai_akhir.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . $idTa, 'left')
-            ->where('nilai_akhir.id_siswa', $idSiswa)
-            ->where('nilai_akhir.id_tahun_ajaran', $idTa)
+            ->select('nilai.*, mata_pelajaran.nama_mapel, mata_pelajaran.kode_mapel, kkm.nilai_kkm')
+            ->join('mata_pelajaran', 'mata_pelajaran.id_mapel = nilai.id_mapel')
+            ->join('kkm', 'kkm.id_mapel = nilai.id_mapel AND kkm.id_kelas = ' . (int) $siswa['id_kelas'] . ' AND kkm.id_tahun_ajaran = ' . $idTa, 'left')
+            ->where('nilai.id_siswa', $idSiswa)
+            ->where('nilai.id_tahun_ajaran', $idTa)
+            ->where('nilai.nilai_akhir IS NOT NULL', null, false)
             ->orderBy('mata_pelajaran.id_mapel', 'ASC')
             ->findAll();
 
         $narrative = new RaporNarrativeService();
         $mapelData = ['wajib' => [], 'pilihan' => []];
         foreach ($nilaiRows as $row) {
-            // Prioritas narasi CP:
-            //   1) capaian_narasi (tabel baru, diisi guru, lepas dari nilai_akhir)
-            //   2) nilai_akhir.narasi_cp (data lama sebelum decouple)
-            //   3) auto-rakit dari nilai_capaian_kompetensi lama
-            $manual = $capaianNarasiModel->narasiFor($idSiswa, (int) $row['id_mapel'], $idTa);
-            if ($manual === '') {
-                $manual = trim((string) ($row['narasi_cp'] ?? ''));
-            }
-            $row['capaian_narasi'] = $manual !== ''
-                ? $manual
-                : $narrative->generateNarasiCP($nilaiCpModel->listWithDeskripsi((int) $row['id_nilai_akhir']));
+            // Pasca merge: narasi CP sumber tunggal = nilai.narasi (sudah merge dari
+            // capaian_narasi + narasi_cp legacy + auto-bake nilai_capaian_kompetensi
+            // saat migrasi). Tetap pakai narasiFor() supaya update narasi yang baru
+            // ditulis guru via CapaianKompetensi tetap kelihatan.
+            $row['capaian_narasi'] = $capaianNarasiModel->narasiFor($idSiswa, (int) $row['id_mapel'], $idTa);
             // Bahasa Bali (kode BBALI) = mapel pilihan; sisanya = wajib
             $isPilihan = strtoupper((string) ($row['kode_mapel'] ?? '')) === 'BBALI';
             $mapelData[$isPilihan ? 'pilihan' : 'wajib'][] = $row;

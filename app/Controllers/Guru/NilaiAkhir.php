@@ -45,8 +45,6 @@ class NilaiAkhir extends BaseController
         $siswaModel = new SiswaModel();
         $tahunAjaranModel = new TahunAjaranModel();
         $nilaiSiswaModel = new NilaiSiswaModel();
-        $nilaiAkhirModel = new NilaiAkhirModel();
-        $remedialModel = new RemedialModel();
         $kkmModel = new KkmModel();
         $scoreService = new AcademicScoreService();
         $db = \Config\Database::connect();
@@ -106,46 +104,41 @@ class NilaiAkhir extends BaseController
                 // Pek 6: tepat 75 = borderline (siswa di-katrol pasca remedial).
                 $flagBorderline = (abs($nilaiAkhir - 75.0) < 0.01);
 
-                $payload = [
-                    'id_siswa' => $s['id_siswa'],
-                    'id_mapel' => $id_mapel,
+                // Pasca merge: nilai_akhir + remedial inline di baris `nilai`.
+                // Naik di atas KKM → kolom remedial di-NULL (pengganti DELETE remedial).
+                // Turun di bawah → status 'Belum' bila belum ada, biarkan kalau sudah
+                // 'Sedang Proses'/'Selesai' (jaga progress guru).
+                $nilaiTbl  = $db->table('nilai');
+                $existing  = $nilaiTbl->getWhere([
+                    'id_siswa'        => $s['id_siswa'],
+                    'id_mapel'        => $id_mapel,
                     'id_tahun_ajaran' => $id_tahun_ajaran,
-                    'nilai_akhir' => $nilaiAkhir,
-                    'nilai_huruf' => $scoreService->determineLetter($nilaiAkhir),
-                    'status_kelulusan' => $statusKelulusan,
+                ])->getRowArray();
+
+                $payload = [
+                    'id_siswa'           => $s['id_siswa'],
+                    'id_mapel'           => $id_mapel,
+                    'id_tahun_ajaran'    => $id_tahun_ajaran,
+                    'nilai_akhir'        => $nilaiAkhir,
+                    'nilai_huruf'        => $scoreService->determineLetter($nilaiAkhir),
+                    'status_kelulusan'   => $statusKelulusan,
                     'flag_borderline_75' => $flagBorderline ? 1 : 0,
+                    'updated_at'         => date('Y-m-d H:i:s'),
                 ];
 
-                $existingNilaiAkhir = $nilaiAkhirModel->where([
-                    'id_siswa' => $s['id_siswa'],
-                    'id_mapel' => $id_mapel,
-                    'id_tahun_ajaran' => $id_tahun_ajaran,
-                ])->first();
-
-                if ($existingNilaiAkhir) {
-                    $nilaiAkhirModel->update($existingNilaiAkhir['id_nilai_akhir'], $payload);
-                    $nilaiAkhirId = (int) $existingNilaiAkhir['id_nilai_akhir'];
+                if ($statusKelulusan === 'Remedial') {
+                    $currentStatus = $existing['status_remedial'] ?? null;
+                    $payload['status_remedial'] = $currentStatus ?: 'Belum';
                 } else {
-                    $nilaiAkhirModel->insert($payload);
-                    $nilaiAkhirId = (int) $nilaiAkhirModel->getInsertID();
+                    $payload['status_remedial'] = null;
+                    $payload['tindak_lanjut']   = null;
                 }
 
-                $existingRemedial = $remedialModel->where('id_nilai_akhir', $nilaiAkhirId)->first();
-
-                if ($statusKelulusan === 'Remedial') {
-                    if ($existingRemedial) {
-                        $remedialModel->update($existingRemedial['id_remedial'], [
-                            'status_remedial' => $existingRemedial['status_remedial'] ?: 'Belum',
-                        ]);
-                    } else {
-                        $remedialModel->insert([
-                            'id_nilai_akhir' => $nilaiAkhirId,
-                            'status_remedial' => 'Belum',
-                            'tindak_lanjut' => null,
-                        ]);
-                    }
-                } elseif ($existingRemedial) {
-                    $remedialModel->delete($existingRemedial['id_remedial']);
+                if ($existing) {
+                    $nilaiTbl->where('id_nilai', (int) $existing['id_nilai'])->update($payload);
+                } else {
+                    $payload['created_at'] = $payload['updated_at'];
+                    $nilaiTbl->insert($payload);
                 }
 
                 $successCount++;
@@ -183,8 +176,6 @@ class NilaiAkhir extends BaseController
         }
 
         $siswaModel = new SiswaModel();
-        $nilaiAkhirModel = new NilaiAkhirModel();
-        $remedialModel = new RemedialModel();
         $kkmModel = new KkmModel();
         $kelasModel = new KelasModel();
         $mapelModel = new MataPelajaranModel();
@@ -200,19 +191,16 @@ class NilaiAkhir extends BaseController
             'id_tahun_ajaran' => $id_tahun_ajaran
         ])->first();
 
-        // Get all students with their final grades for the selected TA only.
-        // Tanpa filter siswa.id_tahun_ajaran, baris siswa lintas-TA dengan id_kelas yang sama
-        // akan ikut muncul (siswa disimpan per (siswa × tahun_ajaran)).
-        // FIX BUG-02: Move id_mapel and id_tahun_ajaran to ON clause for proper LEFT JOIN
-        $siswa = $siswaModel->select('siswa.*, nilai_akhir.*, remedial.*')
+        // Pasca merge: kolom remedial (tindak_lanjut, status_remedial) inline di
+        // tabel `nilai` → 1 LEFT JOIN cukup, hilangkan join ke tabel remedial.
+        $siswa = $siswaModel->select('siswa.*, nilai.*')
             ->join(
-                'nilai_akhir',
-                'nilai_akhir.id_siswa = siswa.id_siswa
-                 AND nilai_akhir.id_mapel = ' . (int) $id_mapel . '
-                 AND nilai_akhir.id_tahun_ajaran = ' . (int) $id_tahun_ajaran,
+                'nilai',
+                'nilai.id_siswa = siswa.id_siswa
+                 AND nilai.id_mapel = ' . (int) $id_mapel . '
+                 AND nilai.id_tahun_ajaran = ' . (int) $id_tahun_ajaran,
                 'left'
             )
-            ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
             ->where('siswa.id_kelas', $id_kelas)
             ->where('siswa.id_tahun_ajaran', $id_tahun_ajaran)
             ->where('siswa.status', 'aktif')
@@ -272,18 +260,18 @@ class NilaiAkhir extends BaseController
             'id_tahun_ajaran' => $id_tahun_ajaran
         ])->first();
 
-        // Query students who are Remedial (below KKM)
+        // Query students who are Remedial (below KKM). Pasca merge: kolom remedial
+        // (tindak_lanjut, status_remedial) sudah di tabel `nilai`.
         $siswaModel = new SiswaModel();
         $siswaRemedial = $siswaModel
-            ->select('siswa.*, nilai_akhir.nilai_akhir, nilai_akhir.nilai_huruf, nilai_akhir.status_kelulusan, remedial.id_remedial, remedial.tindak_lanjut, remedial.status_remedial')
-            ->join('nilai_akhir', 'nilai_akhir.id_siswa = siswa.id_siswa')
-            ->join('remedial', 'remedial.id_nilai_akhir = nilai_akhir.id_nilai_akhir', 'left')
+            ->select('siswa.*, nilai.id_nilai, nilai.nilai_akhir, nilai.nilai_huruf, nilai.status_kelulusan, nilai.tindak_lanjut, nilai.status_remedial')
+            ->join('nilai', 'nilai.id_siswa = siswa.id_siswa')
             ->where('siswa.id_kelas', $id_kelas)
             ->where('siswa.id_tahun_ajaran', $id_tahun_ajaran)
             ->where('siswa.status', 'aktif')
-            ->where('nilai_akhir.id_mapel', $id_mapel)
-            ->where('nilai_akhir.id_tahun_ajaran', $id_tahun_ajaran)
-            ->where('nilai_akhir.status_kelulusan', 'Remedial')
+            ->where('nilai.id_mapel', $id_mapel)
+            ->where('nilai.id_tahun_ajaran', $id_tahun_ajaran)
+            ->where('nilai.status_kelulusan', 'Remedial')
             ->findAll();
 
         $data = [
@@ -306,7 +294,7 @@ class NilaiAkhir extends BaseController
 
     /**
      * Pek 6.4: simpan catatan_remedial untuk siswa borderline (nilai_akhir == 75).
-     * POST body: array `catatan[id_nilai_akhir] => string`.
+     * POST body: array `catatan[id_nilai] => string`.
      * Validasi: kalau flag_borderline_75 = 1, catatan minimal 10 karakter.
      */
     public function saveCatatanBorderline()
@@ -314,7 +302,7 @@ class NilaiAkhir extends BaseController
         $nilaiAkhirModel = new NilaiAkhirModel();
         $data = $this->request->getPost('catatan');
 
-        if (!$data || !\is_array($data)) {
+        if (!$data || !is_array($data)) {
             return redirect()->back()->with('error', 'Data catatan tidak valid.');
         }
 
@@ -333,9 +321,9 @@ class NilaiAkhir extends BaseController
         $db->transStart();
 
         try {
-            foreach ($data as $idNilaiAkhir => $catatan) {
-                $idNilaiAkhir = (int) $idNilaiAkhir;
-                $row = $nilaiAkhirModel->find($idNilaiAkhir);
+            foreach ($data as $idNilai => $catatan) {
+                $idNilai = (int) $idNilai;
+                $row = $nilaiAkhirModel->find($idNilai);
                 if (!$row) {
                     continue;
                 }
@@ -349,7 +337,7 @@ class NilaiAkhir extends BaseController
                         'Catatan wajib diisi minimal 10 karakter untuk siswa dengan nilai akhir 75.');
                 }
 
-                $nilaiAkhirModel->update($idNilaiAkhir, [
+                $nilaiAkhirModel->update($idNilai, [
                     'catatan_remedial' => $catatan !== '' ? $catatan : null,
                 ]);
             }
@@ -391,19 +379,20 @@ class NilaiAkhir extends BaseController
 
         try {
             foreach ($data as $item) {
-                $id_remedial = $item['id_remedial'];
+                // Pasca merge: key = id_nilai (kolom remedial inline di baris `nilai`).
+                $id_nilai      = (int) ($item['id_nilai'] ?? 0);
                 $tindak_lanjut = trim((string) ($item['tindak_lanjut'] ?? ''));
 
-                // Validate: tindak_lanjut is mandatory
+                if ($id_nilai <= 0) {
+                    continue;
+                }
+
                 if (empty($tindak_lanjut)) {
                     $db->transRollback();
                     return redirect()->back()->with('error', 'Tindak lanjut remedial wajib diisi untuk semua siswa yang remedial!');
                 }
 
-                $remedialModel->update($id_remedial, [
-                    'tindak_lanjut' => $tindak_lanjut,
-                    'status_remedial' => 'Sedang Proses'
-                ]);
+                $remedialModel->setRemedial($id_nilai, $tindak_lanjut, 'Sedang Proses');
             }
 
             $db->transComplete();

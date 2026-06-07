@@ -169,18 +169,19 @@ foreach ($siswa as $s) {
                 <input type="hidden" name="id_kelas" value="<?= esc($id_kelas) ?>">
                 <input type="hidden" name="id_mapel" value="<?= esc($id_mapel) ?>">
                 <?php foreach ($siswa as $s): ?>
-                    <?php if (isset($s['status_kelulusan']) && $s['status_kelulusan'] === 'Remedial' && isset($s['id_remedial'])): ?>
+                    <?php // Pasca merge: id_nilai (PK tabel `nilai`) menggantikan id_remedial. ?>
+                    <?php if (isset($s['status_kelulusan']) && $s['status_kelulusan'] === 'Remedial' && !empty($s['id_nilai'])): ?>
                         <div class="mb-3 p-3 border rounded bg-light">
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-person-fill me-1"></i> <?= esc($s['nama_siswa']) ?>
                                 <span class="badge bg-danger ms-2">Nilai: <?= number_format($s['nilai_akhir'], 2) ?></span>
                             </label>
-                            <textarea name="remedial[<?= $s['id_remedial'] ?>][tindak_lanjut]"
+                            <textarea name="remedial[<?= $s['id_nilai'] ?>][tindak_lanjut]"
                                 class="form-control remedial-textarea" rows="2"
                                 placeholder="Contoh: Mengerjakan ulang soal Bab 3, Latihan tambahan di rumah, Bimbingan khusus setiap Rabu..."
                                 required><?= isset($s['tindak_lanjut']) ? esc($s['tindak_lanjut']) : '' ?></textarea>
-                            <input type="hidden" name="remedial[<?= $s['id_remedial'] ?>][id_remedial]"
-                                value="<?= $s['id_remedial'] ?>">
+                            <input type="hidden" name="remedial[<?= $s['id_nilai'] ?>][id_nilai]"
+                                value="<?= $s['id_nilai'] ?>">
                         </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -226,7 +227,7 @@ $borderlineList = array_filter($siswa ?? [], static fn($s) => (int) ($s['flag_bo
                             <i class="bi bi-person-fill me-1"></i> <?= esc($b['nama_siswa']) ?>
                             <span class="badge bg-warning text-dark ms-2">Nilai: 75</span>
                         </label>
-                        <textarea name="catatan[<?= (int) $b['id_nilai_akhir'] ?>]" rows="2"
+                        <textarea name="catatan[<?= (int) ($b['id_nilai'] ?? 0) ?>]" rows="2"
                             class="form-control"
                             placeholder="Mis. Siswa berhasil setelah remedial Bab 3; perlu pendampingan operasi hitung bilangan cacah."
                             minlength="10" required><?= esc($b['catatan_remedial'] ?? '') ?></textarea>
