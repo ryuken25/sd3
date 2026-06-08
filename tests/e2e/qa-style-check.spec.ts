@@ -6,9 +6,14 @@ import { login } from './fixtures/auth';
  * to spot styling bugs (broken filters, misaligned tables, sidebar
  * issues, etc). Bukan assertion test; outputnya untuk direview manual.
  *
+ * Viewport 1920x1080 (16:9) supaya screenshot di laporan rasio konsisten.
+ *
  * Jalankan: npx playwright test qa-style-check
  * Output: hasil/qa/*.png
  */
+
+// Viewport 16:9 untuk lebar konsisten di laporan BAB IV 4.5.
+test.use({ viewport: { width: 1920, height: 1080 } });
 
 const QA = 'hasil/qa';
 
