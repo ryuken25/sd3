@@ -29,12 +29,15 @@ class SD3_DimensiPancasilaSeeder extends Seeder
         $now = date('Y-m-d H:i:s');
 
         foreach ($items as [$urutan, $nama]) {
-            $exists = $this->db->table('master_dimensi_pancasila')->where('urutan', $urutan)->get()->getRow();
+            // Pasca konsolidasi: tabel master_referensi dengan jenis='dimensi'.
+            $exists = $this->db->table('master_referensi')
+                ->where('jenis', 'dimensi')->where('urutan', $urutan)->get()->getRow();
             if ($exists) {
                 $skipped++;
                 continue;
             }
-            $this->db->table('master_dimensi_pancasila')->insert([
+            $this->db->table('master_referensi')->insert([
+                'jenis'        => 'dimensi',
                 'urutan'       => $urutan,
                 'nama_dimensi' => $nama,
                 'created_at'   => $now,

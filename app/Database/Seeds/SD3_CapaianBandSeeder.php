@@ -37,7 +37,9 @@ class SD3_CapaianBandSeeder extends Seeder
                     foreach (['A', 'B', 'C', 'D'] as $band) {
                         $deskripsi = $this->buildNarasi($band, $nama);
 
-                        $exists = $this->db->table('master_capaian_pembelajaran')
+                        // Pasca konsolidasi Phase 2: CP di master_referensi jenis='cp'.
+                        $exists = $this->db->table('master_referensi')
+                            ->where('jenis', 'cp')
                             ->where('id_mapel', $idMapel)
                             ->where('fase', $fase)
                             ->where('semester', $semester)
@@ -45,14 +47,15 @@ class SD3_CapaianBandSeeder extends Seeder
                             ->get()->getRow();
 
                         if ($exists) {
-                            $this->db->table('master_capaian_pembelajaran')
-                                ->where('id_master_cp', $exists->id_master_cp)
+                            $this->db->table('master_referensi')
+                                ->where('id_referensi', $exists->id_referensi)
                                 ->update(['deskripsi' => $deskripsi, 'updated_at' => $now]);
                             $updated++;
                             continue;
                         }
 
-                        $this->db->table('master_capaian_pembelajaran')->insert([
+                        $this->db->table('master_referensi')->insert([
+                            'jenis'      => 'cp',
                             'id_mapel'   => $idMapel,
                             'fase'       => $fase,
                             'semester'   => $semester,

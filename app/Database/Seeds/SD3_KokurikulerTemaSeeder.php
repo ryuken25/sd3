@@ -40,7 +40,9 @@ class SD3_KokurikulerTemaSeeder extends Seeder
             $tingkat = (int) $k['tingkat'];
             $nama    = $temaPerTingkat[$tingkat] ?? 'Tema Profil Pelajar Pancasila';
 
-            $exists = $this->db->table('kokurikuler_tema')
+            // Pasca konsolidasi Phase 2: tema P5 di master_referensi jenis='koko_tema'.
+            $exists = $this->db->table('master_referensi')
+                ->where('jenis', 'koko_tema')
                 ->where('id_kelas', $k['id_kelas'])
                 ->where('id_tahun_ajaran', $taId)
                 ->get()->getRow();
@@ -50,7 +52,8 @@ class SD3_KokurikulerTemaSeeder extends Seeder
                 continue;
             }
 
-            $this->db->table('kokurikuler_tema')->insert([
+            $this->db->table('master_referensi')->insert([
+                'jenis'           => 'koko_tema',
                 'nama_tema'       => $nama,
                 'id_kelas'        => $k['id_kelas'],
                 'id_tahun_ajaran' => $taId,

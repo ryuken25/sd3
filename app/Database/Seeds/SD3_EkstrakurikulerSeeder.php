@@ -27,16 +27,18 @@ class SD3_EkstrakurikulerSeeder extends Seeder
         $now = date('Y-m-d H:i:s');
 
         foreach ($items as [$nama, $deskripsi, $wajib]) {
-            $exists = $this->db->table('master_ekstrakurikuler')->where('nama', $nama)->get()->getRow();
+            // Pasca konsolidasi: tabel master_referensi dengan jenis='ekskul'.
+            $exists = $this->db->table('master_referensi')
+                ->where('jenis', 'ekskul')->where('nama', $nama)->get()->getRow();
             if ($exists) {
-                // Idempotent: pastikan flag wajib tetap sesuai (mis. Pramuka=1).
-                $this->db->table('master_ekstrakurikuler')
-                    ->where('id_ekskul', $exists->id_ekskul)
+                $this->db->table('master_referensi')
+                    ->where('id_referensi', $exists->id_referensi)
                     ->update(['wajib' => $wajib, 'updated_at' => $now]);
                 $updated++;
                 continue;
             }
-            $this->db->table('master_ekstrakurikuler')->insert([
+            $this->db->table('master_referensi')->insert([
+                'jenis'             => 'ekskul',
                 'nama'              => $nama,
                 'deskripsi_default' => $deskripsi,
                 'aktif'             => 1,

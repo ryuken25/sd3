@@ -226,7 +226,9 @@ class WaliKelas extends BaseController
         $db = \Config\Database::connect();
         $db->transStart();
 
-        $db->table('siswa_ekstrakurikuler')
+        // Pasca konsolidasi: ekskul siswa di tabel nilai_aktivitas (jenis='ekskul').
+        $db->table('nilai_aktivitas')
+            ->where('jenis', 'ekskul')
             ->where('id_siswa', $idSiswa)
             ->where('id_tahun_ajaran', $idTa)
             ->delete();

@@ -119,8 +119,10 @@ class SD3_CapaianPembelajaranSeeder extends Seeder
                 continue;
             }
 
+            // Pasca konsolidasi Phase 2: CP di master_referensi jenis='cp'.
             foreach ($cpList as $deskripsi) {
-                $exists = $this->db->table('master_capaian_pembelajaran')
+                $exists = $this->db->table('master_referensi')
+                    ->where('jenis', 'cp')
                     ->where('id_mapel', $idMapel)
                     ->where('fase', 'B')
                     ->where('semester', 'Ganjil')
@@ -130,7 +132,8 @@ class SD3_CapaianPembelajaranSeeder extends Seeder
                     $skipped++;
                     continue;
                 }
-                $this->db->table('master_capaian_pembelajaran')->insert([
+                $this->db->table('master_referensi')->insert([
+                    'jenis'      => 'cp',
                     'id_mapel'   => $idMapel,
                     'fase'       => 'B',
                     'semester'   => 'Ganjil',
@@ -144,7 +147,6 @@ class SD3_CapaianPembelajaranSeeder extends Seeder
         }
 
         // Seed Fase C Ganjil — sama dengan Fase B PLUS Bahasa Inggris.
-        // Guru bisa edit/tambah via UI nanti.
         foreach ($cpFaseBGanjil as $namaMapel => $cpList) {
             $idMapel = $resolveMapelId($namaMapel);
             if (!$idMapel) {
@@ -152,7 +154,8 @@ class SD3_CapaianPembelajaranSeeder extends Seeder
             }
 
             foreach ($cpList as $deskripsi) {
-                $exists = $this->db->table('master_capaian_pembelajaran')
+                $exists = $this->db->table('master_referensi')
+                    ->where('jenis', 'cp')
                     ->where('id_mapel', $idMapel)
                     ->where('fase', 'C')
                     ->where('semester', 'Ganjil')
@@ -162,7 +165,8 @@ class SD3_CapaianPembelajaranSeeder extends Seeder
                     $skipped++;
                     continue;
                 }
-                $this->db->table('master_capaian_pembelajaran')->insert([
+                $this->db->table('master_referensi')->insert([
+                    'jenis'      => 'cp',
                     'id_mapel'   => $idMapel,
                     'fase'       => 'C',
                     'semester'   => 'Ganjil',

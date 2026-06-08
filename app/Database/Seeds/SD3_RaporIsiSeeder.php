@@ -90,9 +90,12 @@ class SD3_RaporIsiSeeder extends Seeder
         $db = $this->db;
 
         // Master CP: kelompokkan per (id_mapel|fase) dan per id_mapel (any fase).
-        $masterRows = $db->table('master_capaian_pembelajaran')
+        // Pasca konsolidasi Phase 2: CP di master_referensi jenis='cp'.
+        $masterRows = $db->table('master_referensi')
+            ->select('id_referensi AS id_master_cp, id_mapel, fase, deskripsi')
+            ->where('jenis', 'cp')
             ->where('aktif', 1)
-            ->orderBy('id_master_cp', 'ASC')
+            ->orderBy('id_referensi', 'ASC')
             ->get()->getResultArray();
         $byMapelFase = [];
         $byMapel     = [];
@@ -168,8 +171,10 @@ class SD3_RaporIsiSeeder extends Seeder
     {
         $db = $this->db;
 
-        $templates = $db->table('master_template_catatan')
-            ->where('aktif', 1)->orderBy('id_template', 'ASC')
+        // Pasca konsolidasi: template catatan ada di master_referensi jenis='template'.
+        $templates = $db->table('master_referensi')
+            ->where('jenis', 'template')->where('aktif', 1)
+            ->orderBy('id_referensi', 'ASC')
             ->get()->getResultArray();
         if (empty($templates)) {
             return 0;
@@ -217,8 +222,11 @@ class SD3_RaporIsiSeeder extends Seeder
     {
         $db = $this->db;
 
-        $ekskulMaster = $db->table('master_ekstrakurikuler')
-            ->where('aktif', 1)->orderBy('id_ekskul', 'ASC')
+        // Pasca konsolidasi: master ekskul di master_referensi jenis='ekskul'.
+        $ekskulMaster = $db->table('master_referensi')
+            ->select('id_referensi AS id_ekskul, nama, deskripsi_default')
+            ->where('jenis', 'ekskul')->where('aktif', 1)
+            ->orderBy('id_referensi', 'ASC')
             ->get()->getResultArray();
         if (empty($ekskulMaster)) {
             return 0;
@@ -231,7 +239,9 @@ class SD3_RaporIsiSeeder extends Seeder
         $inserted = 0;
         foreach ($siswaList as $s) {
             foreach ($ekskulMaster as $e) {
-                $exists = $db->table('siswa_ekstrakurikuler')
+                // Pasca konsolidasi: ekskul siswa di nilai_aktivitas jenis='ekskul'.
+                $exists = $db->table('nilai_aktivitas')
+                    ->where('jenis', 'ekskul')
                     ->where('id_siswa', $s['id_siswa'])
                     ->where('id_ekskul', $e['id_ekskul'])
                     ->where('id_tahun_ajaran', $taId)
@@ -239,7 +249,8 @@ class SD3_RaporIsiSeeder extends Seeder
                 if ($exists > 0) {
                     continue;
                 }
-                $db->table('siswa_ekstrakurikuler')->insert([
+                $db->table('nilai_aktivitas')->insert([
+                    'jenis'           => 'ekskul',
                     'id_siswa'        => $s['id_siswa'],
                     'id_ekskul'       => $e['id_ekskul'],
                     'id_tahun_ajaran' => $taId,
@@ -258,7 +269,10 @@ class SD3_RaporIsiSeeder extends Seeder
     {
         $db = $this->db;
 
-        $dimensiMaster = $db->table('master_dimensi_pancasila')
+        // Pasca konsolidasi: master dimensi di master_referensi jenis='dimensi'.
+        $dimensiMaster = $db->table('master_referensi')
+            ->select('id_referensi AS id_dimensi, nama_dimensi, urutan')
+            ->where('jenis', 'dimensi')
             ->orderBy('urutan', 'ASC')->get()->getResultArray();
         if (empty($dimensiMaster)) {
             return 0;
@@ -267,8 +281,12 @@ class SD3_RaporIsiSeeder extends Seeder
         $levels = ['berkembang', 'cakap', 'mahir', 'sangat_mahir'];
         $inserted = 0;
 
-        $temaRows = $db->table('kokurikuler_tema')
-            ->where('id_tahun_ajaran', $taId)->get()->getResultArray();
+        // Pasca konsolidasi Phase 2: tema P5 di master_referensi jenis='koko_tema'.
+        $temaRows = $db->table('master_referensi')
+            ->select('id_referensi AS id_tema, nama_tema, id_kelas, id_tahun_ajaran')
+            ->where('jenis', 'koko_tema')
+            ->where('id_tahun_ajaran', $taId)
+            ->get()->getResultArray();
 
         foreach ($temaRows as $tema) {
             $siswaList = $db->table('siswa')
@@ -279,7 +297,9 @@ class SD3_RaporIsiSeeder extends Seeder
 
             foreach ($siswaList as $s) {
                 foreach ($dimensiMaster as $idx => $dim) {
-                    $exists = $db->table('siswa_kokurikuler_dimensi')
+                    // Pasca konsolidasi: koko siswa di nilai_aktivitas jenis='koko'.
+                    $exists = $db->table('nilai_aktivitas')
+                        ->where('jenis', 'koko')
                         ->where('id_siswa', $s['id_siswa'])
                         ->where('id_tema', $tema['id_tema'])
                         ->where('id_dimensi', $dim['id_dimensi'])
@@ -293,7 +313,8 @@ class SD3_RaporIsiSeeder extends Seeder
                     $seed  = ((int) $s['id_siswa'] + $idx) % 10;
                     $level = $seed < 7 ? 'berkembang' : $levels[$seed % 4];
 
-                    $db->table('siswa_kokurikuler_dimensi')->insert([
+                    $db->table('nilai_aktivitas')->insert([
+                        'jenis'      => 'koko',
                         'id_siswa'   => $s['id_siswa'],
                         'id_tema'    => $tema['id_tema'],
                         'id_dimensi' => $dim['id_dimensi'],

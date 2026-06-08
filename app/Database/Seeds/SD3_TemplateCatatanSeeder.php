@@ -38,7 +38,9 @@ class SD3_TemplateCatatanSeeder extends Seeder
         $now = date('Y-m-d H:i:s');
 
         foreach ($templates as [$nama, $kategori, $isi]) {
-            $exists = $this->db->table('master_template_catatan')
+            // Pasca konsolidasi: tabel master_referensi dengan jenis='template'.
+            $exists = $this->db->table('master_referensi')
+                ->where('jenis', 'template')
                 ->where('nama_template', $nama)
                 ->get()->getRow();
 
@@ -47,7 +49,8 @@ class SD3_TemplateCatatanSeeder extends Seeder
                 continue;
             }
 
-            $this->db->table('master_template_catatan')->insert([
+            $this->db->table('master_referensi')->insert([
+                'jenis'         => 'template',
                 'nama_template' => $nama,
                 'isi_template'  => $isi,
                 'kategori'      => $kategori,
