@@ -45,6 +45,9 @@ __pycache__/
 
 # Screenshot dokumentasi (regenerable via `npx playwright test 00-screenshots`)
 /hasil/
+
+# Output generator BAB IV diagrams (regenerable via `python skills/bab4-diagrams/build_babiv_assets.py spec.json --out ./out`)
+/out/
 *.pyc
 *.pyo
 

@@ -1,116 +1,86 @@
-# Sistem Informasi Manajemen Nilai Siswa SDN 3 Mekarsari
+# Pack Generator BAB IV — Diagram DFD/ERD + Dokumen Word (Universal)
 
-Aplikasi web manajemen nilai siswa berbasis CodeIgniter 4 untuk SDN 3 Mekarsari. Aplikasi ini mencakup autentikasi multi-role, pengelolaan tahun ajaran, kelas, siswa, guru, mata pelajaran, KKM, input nilai, remedial, rapor, dan dashboard orang tua.
+Pack ini membuat **BAB IV skripsi** (sistem informasi) yang rapi secara otomatis:
+Diagram Konteks (input/output **selaras 1:1**), DFD Level 0, DFD Level 1 per
+proses, **ERD crow's foot + notasi Chen**, **wireframe lite** untuk 4.4,
+**screenshot asli** untuk 4.5, **Black Box** untuk 4.6, **SUS otomatis** untuk 4.7 — semuanya
+dirangkum dalam **satu `BAB_IV.docx`** dengan heading auto-number + caption SEQ.
 
-## Teknologi
+Dirancang untuk dipakai di **Claude Code**: tempel megaprompt, biarkan agen
+membaca kode project-mu, mengisi `spec.json`, menyiapkan screenshot, lalu
+menjalankan generator.
 
-- PHP 8.2 atau lebih baru
-- CodeIgniter 4.7
-- MySQL/MariaDB
-- Composer
-- PHP extensions: `intl`, `mbstring`, `mysqli`, `json`, `curl`, `gd`, `zip`
+## Isi pack
 
-## Isi Repository
+```
+README.md                              ← file ini
+MEGAPROMPT_BAB4_DIAGRAM_UNIVERSAL.md   ← tempel ini ke Claude Code (di root project)
+spec.schema.md                         ← dokumentasi tiap field spec.json
+spec.example.json                      ← contoh terisi penuh (ChelisNet)
+contoh/                                ← OUTPUT NYATA siap-lihat (BabIvAssets + BAB_IV.docx)
+skills/
+  bab4-diagrams/                       ← skill: library + generator
+    SKILL.md
+    build_babiv_assets.py              ← orchestrator: spec.json → BabIvAssets/
+    babiv_docx.py                      ← generator Word (heading styles + SEQ, 4.1-4.7)
+    capture_screenshots.py             ← tangkap screenshot 4.5 via Playwright
+    verify_diagrams.py                 ← cek keseimbangan tiap PNG (anti "kanan atas kosong")
+    requirements.txt
+    spec.example.json   data.xlsx      ← contoh + contoh data SUS
+    babiv_diagrams/                    ← engine layout + render
+      model.py drawio.py graphml.py render.py __init__.py
+      gvlayout.py                      ← layout via Graphviz (posisi + waypoint)
+      sus.py                           ← hitung System Usability Scale (4.7)
+      mockup.py                        ← wireframe lite (4.4) via Playwright
+    vendor/viewer-static.min.js        ← draw.io viewer offline (tanpa internet)
+```
 
-Repository ini hanya difokuskan untuk file inti program:
-
-- `app/` - source code aplikasi, controller, model, view, migration, dan seeder.
-- `public/` - document root dan aset publik.
-- `writable/` - folder runtime CodeIgniter dengan file `index.html` penjaga direktori.
-- `composer.json` dan `composer.lock` - dependency PHP.
-- `.env` - konfigurasi localhost yang digunakan project ini.
-- `README.md` - panduan instalasi.
-
-File dokumen, diagram, archive, model AI, virtual environment, dan hasil generate tidak disertakan.
-
-## Cara Install
-
-### 1. Clone repository
+## Cara pakai cepat (manual)
 
 ```bash
-git clone https://github.com/ryuken25/sd3.git
-cd sd3
+# OPSIONAL: graphviz (DFD level sedikit lebih rapi). Linux: sudo apt-get install -y graphviz | Windows: winget install graphviz
+pip install python-docx playwright openpyxl pillow --break-system-packages
+python -m playwright install chromium
+
+cd skills/bab4-diagrams
+python build_babiv_assets.py spec.example.json --out ./out
+# hasil: ./out/BabIvAssets/  (context, dfd 0, dfd 1.X, erd, mockup 4.4, BAB_IV.docx)
 ```
 
-### 2. Install dependency PHP
+## Cara pakai di Claude Code
 
-```bash
-composer install
-```
+1. Buka project skripsi-mu (mis. project CodeIgniter 4) di Claude Code.
+2. Letakkan folder `skills/bab4-diagrams/` di project (atau di `.claude/skills/`).
+3. Untuk 4.7: ekspor jawaban kuesioner SUS jadi `data.xlsx` dan taruh di project.
+4. Tempel isi `MEGAPROMPT_BAB4_DIAGRAM_UNIVERSAL.md` sebagai instruksi.
+5. Agen akan: audit kode → isi `spec.json` → render wireframe 4.4 → tangkap
+   screenshot 4.5 → black box 4.6 → SUS 4.7 → jalankan generator → verify_diagrams.py.
+6. Buka `BAB_IV.docx`, tekan **Ctrl+A → F9** untuk update semua nomor.
 
-### 3. Buat database
+## Prinsip desain (kenapa hasilnya rapi)
 
-Buat database MySQL/MariaDB dengan nama sesuai konfigurasi default project:
+- Kamu/agen hanya mendeklarasikan **logika** (proses, entitas, aliran, mockup).
+  Posisi node dihitung **Graphviz** (minim persilangan, tak menembus kotak) → DFD
+  **ortogonal tanpa label tumpang-tindih**, ERD **crow's foot** + **Chen**.
+- Render pakai **engine draw.io asli** (dibundel offline) → PNG bisa dilihat &
+  diverifikasi sebelum dipakai.
+- 4.4 wireframe lite (LOGO teks, kotak gambar bersilang X, data dummy) digenerate
+  otomatis; 4.5 screenshot asli (capture_screenshots.py); 4.6 black box per fitur; 4.7 SUS dari `data.xlsx`.
+- Dokumen Word pakai **heading styles + field SEQ** → penomoran heading & caption
+  tidak pernah bolong (memperbaiki bug "Gambar 4.19 → 4.22" versi lama), dan
+  penomoran list (1/2/3 + a/b/c) menjorok benar (tidak meluber keluar halaman).
 
-```sql
-CREATE DATABASE db_nilai_siswa CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-```
+## Aturan penting
 
-Konfigurasi database bawaan ada di `.env`:
+- Jangan menulis koordinat XML atau nomor gambar/tabel dengan tangan.
+- Label aliran: input `data_xxx`, output `info_xxx` (snake_case).
+- Dekomposisi **semua** proses utama ke Level 1 (folder `dfd 1.1, 1.2, …`).
+- Maksimal **8 proses per level** (aturan DFD 7±2).
+- **Tiap node (eksternal/proses/store) wajib punya aliran masuk DAN keluar** (divalidasi otomatis).
+- **graphviz OPSIONAL** — ERD Chen & semua diagram tetap jalan tanpa graphviz (pakai layout bawaan).
+- ERD pakai kata kunci kardinalitas (`one`/`many`/`mandone`/`zeromany`).
+- 4.4 = wireframe (`mockup`), 4.5 = screenshot asli (`image`), 4.6 = black box (`pengujian.blackbox`), 4.7 = SUS (`sus.xlsx`).
+- Semua bagian (4.1–4.7) masuk **satu** `BAB_IV.docx`. Sel tabel rata kiri (tanpa tab).
 
-```ini
-database.default.hostname = localhost
-database.default.database = db_nilai_siswa
-database.default.username = root
-database.default.password =
-database.default.DBDriver = MySQLi
-database.default.port = 3306
-```
-
-Jika username/password MySQL berbeda, ubah bagian tersebut di `.env`.
-
-### 4. Jalankan migration
-
-```bash
-php spark migrate
-```
-
-### 5. Jalankan seeder data awal
-
-Seeder utama sudah disertakan di `app/Database/Seeds`.
-
-```bash
-php spark db:seed SD3MekarsariSeeder
-```
-
-Jika butuh data khusus untuk kebutuhan capture/demo, jalankan:
-
-```bash
-php spark db:seed SD3_CapturePrepSeeder
-```
-
-### 6. Jalankan aplikasi
-
-```bash
-php spark serve
-```
-
-Buka aplikasi di browser:
-
-```text
-http://localhost:8080
-```
-
-## Login Awal
-
-Gunakan akun yang dibuat oleh seeder. Untuk memastikan kredensial yang tersedia, cek file seeder di `app/Database/Seeds`, terutama `SD3MekarsariSeeder.php` dan seeder role terkait.
-
-## Struktur Penting
-
-```text
-app/Config/Routes.php              Routing aplikasi
-app/Controllers/                   Controller admin, guru, orang tua, dan auth
-app/Database/Migrations/           Struktur tabel database
-app/Database/Seeds/                Data awal aplikasi
-app/Models/                        Model database
-app/Views/                         Tampilan aplikasi
-public/index.php                   Entry point aplikasi
-writable/                          Cache, log, session, upload runtime
-```
-
-## Catatan Development
-
-- Jangan commit folder `vendor/`; jalankan `composer install` setelah clone.
-- Folder `writable/` harus bisa ditulis oleh web server.
-- File `.env` pada repository ini sengaja disertakan karena hanya berisi konfigurasi localhost project.
-- Dokumen seperti `.docx`, `.pdf`, diagram, hasil screenshot, model `.pt`, archive, dan virtual environment diabaikan oleh `.gitignore`.
+Detail lengkap: lihat `MEGAPROMPT_BAB4_DIAGRAM_UNIVERSAL.md`, `spec.schema.md`,
+dan `skills/bab4-diagrams/SKILL.md`.
