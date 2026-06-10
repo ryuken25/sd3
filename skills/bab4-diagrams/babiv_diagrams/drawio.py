@@ -774,12 +774,12 @@ def _erd_crowsfoot_gv(erd: ERD, margin: int = 40) -> Optional[str]:
     sizes = {e.id: _entity_size(e) for e in erd.entities}
     edges = [(r.src, r.dst) for r in erd.relations if r.src in sizes and r.dst in sizes]
     try:
-        # nodesep & ranksep tuned untuk ratio ~9:13 (portrait kompak).
-        # splines="ortho" → garis siku, label graphviz auto-route tanpa
-        # menabrak attribute area kotak.
+        # nodesep & ranksep tuned untuk ratio ~1:1 (square).
+        # ranksep tinggi menambah jarak antar kolom (lebar),
+        # nodesep rendah memadatkan vertikal — total kanvas mendekati persegi.
         pos, epaths, (W, H) = gvlayout.layout(
             sizes, edges, engine="dot", rankdir="LR",
-            nodesep=0.7, ranksep=2.0, splines="ortho")
+            nodesep=0.35, ranksep=3.5, splines="ortho")
     except Exception:
         return None
     epath = {(t, h): p for t, h, p in epaths}
