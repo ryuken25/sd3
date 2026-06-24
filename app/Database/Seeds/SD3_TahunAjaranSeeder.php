@@ -22,14 +22,12 @@ class SD3_TahunAjaranSeeder extends Seeder
     {
         echo "▶ [1/9] TahunAjaran ... ";
 
-        // Hapus TA 2026/2027 kalau ada
+        // Hapus TA 2023/2024 dan 2026/2027 kalau ada
         $this->db->table('tahun_ajaran')
-            ->where('tahun_ajaran', '2026/2027')
+            ->whereIn('tahun_ajaran', ['2023/2024', '2026/2027'])
             ->delete();
 
         $tas = [
-            ['2023/2024', 'Ganjil', '2023-07-17', '2023-12-22', 'nonaktif', 'Kunci'],
-            ['2023/2024', 'Genap',  '2024-01-08', '2024-06-21', 'nonaktif', 'Kunci'],
             ['2024/2025', 'Ganjil', '2024-07-15', '2024-12-20', 'nonaktif', 'Kunci'],
             ['2024/2025', 'Genap',  '2025-01-06', '2025-06-20', 'nonaktif', 'Kunci'],
             ['2025/2026', 'Ganjil', '2025-07-14', '2025-12-19', 'aktif',    'Buka'],

@@ -33,9 +33,11 @@ class SD3_SiswaSeeder extends Seeder
     private function personalDataForNis(string $nis): array
     {
         $tmptPool   = ['Tabanan', 'Denpasar', 'Singaraja', 'Buleleng'];
-        $dusunPool  = ['Tundak', 'Mekar Sari', 'Bunut', 'Tegeha', 'Banjar Baru'];
+        $banjarPool = ['Banjar Temacun', 'Banjar Tundak'];
+        
         $tmpt       = $tmptPool[crc32($nis) % count($tmptPool)];
-        $dusun      = $dusunPool[crc32($nis . 'a') % count($dusunPool)];
+        $banjar     = $banjarPool[crc32($nis . 'banjar') % count($banjarPool)];
+        
         $birthYear  = 2011 + (crc32($nis . 'y') % 7);  // 2011..2017
         $birthMonth = 1 + (crc32($nis . 'm') % 12);    // 1..12
         $birthDay   = 1 + (crc32($nis . 'd') % 28);    // 1..28
@@ -44,7 +46,7 @@ class SD3_SiswaSeeder extends Seeder
         return [
             'tempat_lahir'  => $tmpt,
             'tanggal_lahir' => $tanggal,
-            'alamat'        => "Dsn. {$dusun}, Ds. Mekarsari, Kec. Baturiti, Tabanan",
+            'alamat'        => "{$banjar}, Desa Mekarsari, Kecamatan Baturiti, Kabupaten Tabanan, Bali",
         ];
     }
 
@@ -226,8 +228,9 @@ class SD3_SiswaSeeder extends Seeder
                     $jk   = $s['jk'];
 
                     if ($nis === '') {
-                        $nis = 'SIS' . str_pad((string) $currentTingkat, 1, '0', STR_PAD_LEFT)
-                             . str_pad((string) ($idx + 1), 3, '0', STR_PAD_LEFT);
+                        $entryYear = 2025 - ($currentTingkat - 1);
+                        $entryYearLast2 = $entryYear % 100;
+                        $nis = sprintf("%02d%02d%02d", $entryYearLast2, $currentTingkat, $idx + 1);
                     }
 
                     // User ortu: 1 per NIS, reused lintas TA

@@ -1,9 +1,10 @@
-@echo off
+﻿@echo off
 REM ============================================================================
-REM  SD3 Mekarsari — Installer Windows
+REM  SD3 Mekarsari â€” Installer Windows
 REM  One-shot setup: cek XAMPP, install deps, create DB, migrate, seed.
 REM
-REM  Pakai:  ./setup-windows.bat            (full setup, asumsi DB sudah ada/baru)
+REM  Pakai:  ./setup-windows.bat            (normal setup, create DB jika belum ada, migrate, seed)
+REM          ./setup-windows.bat fresh      (fresh setup, migrate:refresh, seed)
 REM          ./setup-windows.bat reset      (DROP DB dulu, lalu setup ulang fresh)
 REM
 REM  Tested: Windows 11, PHP 8.2, XAMPP MySQL 8.0+/MariaDB 10.4+
@@ -63,20 +64,34 @@ if not exist "vendor\autoload.php" (
     echo       vendor/ sudah ada.
 )
 
-REM --- 4) Buat / Reset DB ---------------------------------------------------
+REM --- 4) Buat DB jika belum ada --------------------------------------------
 echo [3/6] Menyiapkan database %DB_NAME%...
-if /I "%MODE%"=="reset" (
-    echo       MODE=reset, DROP DATABASE %DB_NAME% dulu...
-    "%MYSQL_EXE%" -u %DB_USER% -e "DROP DATABASE IF EXISTS `%DB_NAME%`;"
-    if errorlevel 1 ( echo [X] gagal drop database & exit /b 1 )
-)
 "%MYSQL_EXE%" -u %DB_USER% -e "CREATE DATABASE IF NOT EXISTS `%DB_NAME%` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
 if errorlevel 1 ( echo [X] gagal create database & exit /b 1 )
 echo       OK: database %DB_NAME% siap.
 
 REM --- 5) Migrate ------------------------------------------------------------
 echo [4/6] Menjalankan migration...
-call php spark migrate
+if /I "%MODE%"=="fresh" (
+    echo       MODE=fresh, jalankan php spark migrate:rollback -b 0...
+    call php spark migrate:rollback -b 0
+    if errorlevel 1 (
+        echo [X] migration rollback gagal.
+        exit /b 1
+    )
+    echo       jalankan php spark migrate...
+    call php spark migrate
+) else if /I "%MODE%"=="reset" (
+    echo       MODE=reset, DROP DATABASE %DB_NAME% dulu...
+    "%MYSQL_EXE%" -u %DB_USER% -e "DROP DATABASE IF EXISTS `%DB_NAME%`;"
+    if errorlevel 1 ( echo [X] gagal drop database & exit /b 1 )
+    "%MYSQL_EXE%" -u %DB_USER% -e "CREATE DATABASE IF NOT EXISTS `%DB_NAME%` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+    if errorlevel 1 ( echo [X] gagal create database & exit /b 1 )
+    call php spark migrate
+) else (
+    echo       MODE=normal, jalankan php spark migrate...
+    call php spark migrate
+)
 if errorlevel 1 (
     echo [X] migration gagal. Cek pesan error di atas.
     exit /b 1
@@ -86,7 +101,8 @@ REM --- 6) Seeder utama -------------------------------------------------------
 echo [5/6] Menjalankan seeder SD3MekarsariSeeder...
 call php spark db:seed SD3MekarsariSeeder
 if errorlevel 1 (
-    echo [!] seeder utama gagal. Lanjut tanpa seed.
+    echo [X] seeder utama gagal.
+    exit /b 1
 )
 
 REM --- 7) Verifikasi ---------------------------------------------------------

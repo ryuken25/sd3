@@ -64,6 +64,11 @@ class RelaxSiswaNisUniqueForMultiPeriod extends Migration
             $this->db->query("ALTER TABLE siswa DROP INDEX uniq_siswa_nis_ta");
         }
 
+        // Truncate siswa table to prevent duplicate key errors during rollback
+        $this->db->query("SET FOREIGN_KEY_CHECKS = 0;");
+        $this->db->query("TRUNCATE TABLE siswa;");
+        $this->db->query("SET FOREIGN_KEY_CHECKS = 1;");
+
         $this->db->query("ALTER TABLE siswa ADD UNIQUE (nis)");
     }
 }
